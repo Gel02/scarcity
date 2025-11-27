@@ -100,7 +100,8 @@ export class WitnessAdapter implements WitnessClient {
             hash: data.attestation?.attestation?.hash || hash,
             timestamp: data.attestation?.attestation?.timestamp || Date.now(),
             signatures,
-            witnessIds
+            witnessIds,
+            raw: data.attestation  // Store original SignedAttestation for verification
           };
         }
       } catch (error) {
@@ -132,8 +133,9 @@ export class WitnessAdapter implements WitnessClient {
     // Attempt real verification if gateway is available
     if (this.config) {
       try {
-        // Transform Scarcity's Attestation format to Witness API format
-        const witnessAttestation = {
+        // If we have the raw SignedAttestation, use it directly
+        // Otherwise, try to reconstruct (may fail if signatures aren't in correct format)
+        const witnessAttestation = attestation.raw || {
           attestation: {
             hash: attestation.hash,
             timestamp: attestation.timestamp,

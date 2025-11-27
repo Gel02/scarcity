@@ -20,6 +20,7 @@ export interface Attestation {
   readonly timestamp: number;
   readonly signatures: string[];
   readonly witnessIds: string[];
+  readonly raw?: any;  // Original SignedAttestation from Witness for verification
 }
 
 export interface TransferPackage {
