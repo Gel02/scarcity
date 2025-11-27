@@ -1,7 +1,12 @@
 /**
  * Freebird integration adapter
  *
- * Provides anonymous authorization and blinding for Scarce tokens.
+ * Provides anonymous authorization and blinding for Scarcity tokens.
+ *
+ * NOTE: Scarcity's use of Freebird is conceptual. The current interface
+ * uses Freebird as a generic blinding primitive, while Freebird's actual
+ * SDK is designed for anonymous token issuance. Full VOPRF integration
+ * is planned for Phase 2.
  */
 
 import { Crypto } from '../crypto.js';
@@ -15,13 +20,14 @@ export interface FreebirdAdapterConfig {
 /**
  * Adapter for Freebird anonymous authorization service
  *
- * In production, this would integrate with actual Freebird SDK.
- * For now, we provide a mock implementation that simulates the
- * VOPRF blinding protocol.
+ * This implementation uses HTTP calls to Freebird's REST API endpoints.
+ * For now, we simulate the blinding operations that Scarcity needs.
+ * Future work will integrate full VOPRF protocol from Freebird SDK.
  */
 export class FreebirdAdapter implements FreebirdClient {
   private readonly issuerUrl: string;
   private readonly verifierUrl: string;
+  private metadata: any = null;
 
   constructor(config: FreebirdAdapterConfig) {
     this.issuerUrl = config.issuerUrl;
@@ -29,18 +35,35 @@ export class FreebirdAdapter implements FreebirdClient {
   }
 
   /**
+   * Initialize by fetching issuer metadata
+   */
+  private async init(): Promise<void> {
+    if (this.metadata) return;
+
+    try {
+      const response = await fetch(`${this.issuerUrl}/.well-known/issuer`);
+      if (response.ok) {
+        this.metadata = await response.json();
+        console.log('[Freebird] Connected to issuer:', this.metadata.issuer_id);
+      } else {
+        console.warn('[Freebird] Could not fetch issuer metadata, using fallback mode');
+      }
+    } catch (error) {
+      console.warn('[Freebird] Issuer not available, using fallback mode:', error);
+    }
+  }
+
+  /**
    * Blind a public key for privacy-preserving commitment
    *
-   * In production: Uses VOPRF with P-256 curve
-   * Mock: Returns SHA-256 hash as placeholder
+   * Current: Simulated blinding using hash
+   * Future: Use Freebird's VOPRF blind() crypto primitive
    */
   async blind(publicKey: PublicKey): Promise<Uint8Array> {
-    // TODO: Integrate with actual Freebird SDK
-    // const client = new FreebirdClient({ issuerUrl: this.issuerUrl });
-    // await client.init();
-    // return await client.blindValue(publicKey.bytes);
+    await this.init();
 
-    // Mock implementation
+    // Simulated blinding - combines public key with random nonce
+    // In production VOPRF: blind = H(publicKey)^r for random r
     const nonce = Crypto.randomBytes(32);
     return Crypto.hash(publicKey.bytes, nonce);
   }
@@ -48,53 +71,85 @@ export class FreebirdAdapter implements FreebirdClient {
   /**
    * Issue an authorization token
    *
-   * In production: Receives DLEQ proof from issuer
-   * Mock: Returns hash as placeholder
+   * Current: Simulated token issuance
+   * Future: POST to /v1/oprf/issue with blinded element
    */
   async issueToken(blindedValue: Uint8Array): Promise<Uint8Array> {
-    // TODO: Integrate with actual Freebird SDK
-    // const response = await fetch(`${this.issuerUrl}/v1/issue`, {
-    //   method: 'POST',
-    //   body: JSON.stringify({ blinded: Crypto.toHex(blindedValue) })
-    // });
-    // const data = await response.json();
-    // return Crypto.fromHex(data.token);
+    await this.init();
 
-    // Mock implementation
+    // Attempt real issuance if issuer is available
+    if (this.metadata) {
+      try {
+        const response = await fetch(`${this.issuerUrl}/v1/oprf/issue`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            blinded_element_b64: Buffer.from(blindedValue).toString('base64url'),
+            sybil_proof: { type: 'none' }
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          return Buffer.from(data.token, 'base64url');
+        }
+      } catch (error) {
+        console.warn('[Freebird] Token issuance failed, using fallback:', error);
+      }
+    }
+
+    // Fallback: simulated token
     return Crypto.hash(blindedValue, 'ISSUED');
   }
 
   /**
    * Verify an authorization token
    *
-   * In production: Verifies DLEQ proof
-   * Mock: Always returns true
+   * Current: Basic validation
+   * Future: POST to /v1/verify with full DLEQ proof verification
    */
   async verifyToken(token: Uint8Array): Promise<boolean> {
-    // TODO: Integrate with actual Freebird SDK
-    // const response = await fetch(`${this.verifierUrl}/v1/verify`, {
-    //   method: 'POST',
-    //   body: JSON.stringify({ token: Crypto.toHex(token) })
-    // });
-    // const data = await response.json();
-    // return data.valid;
+    await this.init();
 
-    // Mock implementation
+    // Attempt real verification if verifier is available
+    if (this.metadata && this.verifierUrl) {
+      try {
+        const response = await fetch(`${this.verifierUrl}/v1/verify`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            token_b64: Buffer.from(token).toString('base64url'),
+            issuer_id: this.metadata.issuer_id,
+            exp: Math.floor(Date.now() / 1000) + 3600
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          return data.valid === true;
+        }
+      } catch (error) {
+        console.warn('[Freebird] Token verification failed, using fallback:', error);
+      }
+    }
+
+    // Fallback: basic length check
     return token.length === 32;
   }
 
   /**
    * Create ownership proof for token spending
    *
-   * In production: Uses Freebird's unforgeable token protocol
-   * Mock: Returns hash of secret
+   * Current: Hash-based proof
+   * Future: VOPRF-based unforgeable proof using Freebird crypto
    */
   async createOwnershipProof(secret: Uint8Array): Promise<Uint8Array> {
-    // TODO: Integrate with actual Freebird SDK
-    // This would use the VOPRF protocol to create an unforgeable proof
-    // that the holder possesses the secret without revealing it
-
-    // Mock implementation
+    // This would ideally use VOPRF to create a proof that:
+    // 1. Proves knowledge of secret without revealing it
+    // 2. Is unforgeable (cannot be created without the secret)
+    // 3. Is unlinkable (cannot correlate proofs to the same secret)
+    //
+    // For now: deterministic hash as placeholder
     return Crypto.hash(secret, 'OWNERSHIP_PROOF');
   }
 }
