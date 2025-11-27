@@ -70,13 +70,31 @@ export class WitnessAdapter implements WitnessClient {
           const data = await response.json();
 
           // Transform Witness API response to Scarcity's Attestation format
-          const signatures = data.attestation?.signatures?.map((sig: any) =>
-            typeof sig.signature === 'string' ? sig.signature : JSON.stringify(sig.signature)
-          ) || [];
+          // The response structure is:
+          // { attestation: { attestation: {...}, signatures: MultiSig | Aggregated } }
 
-          const witnessIds = data.attestation?.signatures?.map((sig: any) =>
-            sig.witness_id
-          ) || [];
+          const signaturesData = data.attestation?.signatures;
+          let signatures: string[] = [];
+          let witnessIds: string[] = [];
+
+          if (signaturesData) {
+            // Check if it's MultiSig variant (has 'signatures' array)
+            if (Array.isArray(signaturesData.signatures)) {
+              signatures = signaturesData.signatures.map((sig: any) =>
+                typeof sig.signature === 'string' ? sig.signature : JSON.stringify(sig.signature)
+              );
+              witnessIds = signaturesData.signatures.map((sig: any) => sig.witness_id);
+            }
+            // Check if it's Aggregated variant (has 'signature' and 'signers')
+            else if (signaturesData.signature && Array.isArray(signaturesData.signers)) {
+              signatures = [
+                typeof signaturesData.signature === 'string'
+                  ? signaturesData.signature
+                  : JSON.stringify(signaturesData.signature)
+              ];
+              witnessIds = signaturesData.signers;
+            }
+          }
 
           return {
             hash: data.attestation?.attestation?.hash || hash,
