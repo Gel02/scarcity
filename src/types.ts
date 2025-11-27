@@ -1,5 +1,5 @@
 /**
- * Core type definitions for Scarce protocol
+ * Core type definitions for Scarcity protocol
  */
 
 export interface PublicKey {

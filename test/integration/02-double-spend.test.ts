@@ -6,7 +6,7 @@
  */
 
 import {
-  ScarceToken,
+  ScarbuckToken,
   NullifierGossip,
   TransferValidator,
   FreebirdAdapter,
@@ -59,10 +59,10 @@ export async function runDoubleSpendTest(): Promise<void> {
   });
 
   // Test 1: Mint a token
-  let token: ScarceToken;
+  let token: ScarbuckToken;
 
   await runner.run('Token minting', async () => {
-    token = ScarceToken.mint(50, freebird, witness, gossip);
+    token = ScarbuckToken.mint(50, freebird, witness, gossip);
     runner.assert(token.getMetadata().spent === false, 'Token should not be spent');
   });
 
