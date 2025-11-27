@@ -550,4 +550,4 @@ Apache License 2.0
 - **[HyperToken](https://github.com/flammafex/hypertoken)**: Distributed state synchronization
 - **[Witness](https://github.com/flammafex/witness)**: Threshold signature timestamping
 
-**Scarcity: You fucked with the best.**
+**Scarcity: You're fucking with the best.**
