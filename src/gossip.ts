@@ -17,6 +17,7 @@ export interface GossipConfig {
   readonly witness: WitnessClient;
   readonly maxNullifiers?: number;
   readonly pruneInterval?: number;
+  readonly maxNullifierAge?: number; // Must match Validator's maxTokenAge
 }
 
 export class NullifierGossip {
@@ -27,12 +28,16 @@ export class NullifierGossip {
   private readonly pruneInterval: number;
   private receiveHandler?: (data: GossipMessage) => Promise<void>;
   private pruneTimer?: NodeJS.Timeout;
-
+  private readonly maxNullifierAge: number;
+  
   constructor(config: GossipConfig) {
     this.witness = config.witness;
     this.maxNullifiers = config.maxNullifiers ?? 100_000;
     this.pruneInterval = config.pruneInterval ?? 3600_000; // 1 hour
-
+	// Default to ~1.5 years (13,824 hours) to match the Validator's logic.
+    // Ideally, this should be slightly LONGER than the Validator's maxTokenAge
+    // to account for clock skew and propagation delays.
+    this.maxNullifierAge = config.maxNullifierAge ?? (24 * 24 * 24 * 3600 * 1000);
     // Start pruning old nullifiers periodically
     this.startPruning();
   }
@@ -214,17 +219,23 @@ export class NullifierGossip {
   private startPruning(): void {
     this.pruneTimer = setInterval(() => {
       const now = Date.now();
-      const cutoff = now - 24 * 60 * 60 * 1000; // 24 hours
+      const cutoff = now - this.maxNullifierAge;
 
       // Remove nullifiers older than cutoff
       for (const [key, record] of this.seenNullifiers.entries()) {
+        // We rely on 'firstSeen' as the approximation of the token's timestamp
         if (record.firstSeen < cutoff) {
           this.seenNullifiers.delete(key);
         }
       }
 
-      // If still over limit, remove oldest entries
+      // Safety Valve: If still over maxNullifiers limit (e.g. DDoS), 
+      // we must enforce the hard cap to prevent crashing.
+      // NOTE: This creates a theoretical double-spend risk if the network is flooded,
+      // but preventing a crash is the priority.
       if (this.seenNullifiers.size > this.maxNullifiers) {
+        console.warn(`[Gossip] Nullifier set size (${this.seenNullifiers.size}) exceeded limit. Forcing prune.`);
+        
         const entries = Array.from(this.seenNullifiers.entries())
           .sort((a, b) => a[1].firstSeen - b[1].firstSeen);
 
@@ -234,7 +245,6 @@ export class NullifierGossip {
         }
       }
     }, this.pruneInterval);
-  }
 
   /**
    * Cleanup resources

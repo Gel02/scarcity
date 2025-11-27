@@ -53,10 +53,9 @@ export class Crypto {
    */
   static generateNullifier(
     secret: Uint8Array,
-    tokenId: string,
-    timestamp: number
+    tokenId: string
   ): Uint8Array {
-    return this.hash(secret, tokenId, timestamp);
+    return this.hash(secret, tokenId);
   }
 
   /**

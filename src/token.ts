@@ -59,10 +59,9 @@ export class ScarceToken {
 
     // A. Create nullifier (unique spend identifier)
     const timestamp = Date.now();
-    const nullifier = Crypto.generateNullifier(
+    const nullifier = Crypto.hash(
       this.secret,
-      this.id,
-      timestamp
+      this.id
     );
 
     // B. Blind commitment to recipient (privacy-preserving)
