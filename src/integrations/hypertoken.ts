@@ -5,7 +5,7 @@
  * PeerConnection for WebSocket-based P2P networking.
  */
 
-import { PeerConnection as HTPeerConnection } from 'hypertoken-monorepo/network/PeerConnection.js';
+import { PeerConnection as HTPeerConnection } from '../vendor/hypertoken/PeerConnection.js';
 import type { PeerConnection, GossipMessage } from '../types.js';
 
 export interface HyperTokenAdapterConfig {
@@ -72,13 +72,15 @@ export class HyperTokenAdapter {
   private isReady = false;
   private readyPromise: Promise<void>;
   private readyResolve?: () => void;
+  private readyReject?: (error: Error) => void;
 
   constructor(config: HyperTokenAdapterConfig = {}) {
     this.relayUrl = config.relayUrl ?? 'ws://localhost:8080';
 
     // Create a promise that resolves when connection is ready
-    this.readyPromise = new Promise<void>((resolve) => {
+    this.readyPromise = new Promise<void>((resolve, reject) => {
       this.readyResolve = resolve;
+      this.readyReject = reject;
     });
   }
 
@@ -122,14 +124,31 @@ export class HyperTokenAdapter {
     });
 
     this.htConnection.on('net:error', (evt: any) => {
-      console.error(`[HyperToken] Network error:`, evt.payload?.error);
+      const error = evt.payload?.error || new Error('Unknown network error');
+      console.error(`[HyperToken] Network error:`, error);
+      if (this.readyReject && !this.isReady) {
+        this.readyReject(error);
+      }
     });
 
     // Initiate connection
     this.htConnection.connect();
 
+    // Set timeout for connection
+    const timeout = setTimeout(() => {
+      if (!this.isReady && this.readyReject) {
+        this.readyReject(new Error('Connection timeout'));
+      }
+    }, 10000); // 10 second timeout
+
     // Wait for connection to be ready
-    await this.readyPromise;
+    try {
+      await this.readyPromise;
+      clearTimeout(timeout);
+    } catch (error) {
+      clearTimeout(timeout);
+      throw error;
+    }
   }
 
   /**
@@ -138,14 +157,26 @@ export class HyperTokenAdapter {
    * Note: This creates a virtual peer connection. The actual peer
    * may not be connected yet - that happens dynamically as peers
    * join the relay server.
+   *
+   * In fallback mode (when not connected), this creates a mock peer
+   * that can be used for testing but won't actually send/receive data.
    */
   createPeer(peerId?: string): PeerConnection {
-    if (!this.htConnection) {
-      throw new Error('Must call connect() before creating peers');
-    }
-
     // Generate peer ID if not provided
     const targetPeerId = peerId ?? this.generatePeerId();
+
+    // If not connected, create a mock peer for fallback mode
+    if (!this.htConnection) {
+      return {
+        id: targetPeerId,
+        async send(_data: GossipMessage): Promise<void> {
+          // No-op in fallback mode
+        },
+        isConnected(): boolean {
+          return false;
+        }
+      };
+    }
 
     // Create wrapper
     const wrapper = new HyperTokenPeerWrapper(this.htConnection, targetPeerId);
