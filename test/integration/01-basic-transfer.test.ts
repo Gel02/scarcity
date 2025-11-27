@@ -120,6 +120,12 @@ export async function runBasicTransferTest(): Promise<void> {
   await runner.run('Transfer validation', async () => {
     const result = await validator.validateTransfer(transferPkg);
 
+    console.log('Validation result:', {
+      valid: result.valid,
+      confidence: result.confidence,
+      reason: result.reason
+    });
+
     runner.assertEquals(result.valid, true, 'Transfer should be valid');
     runner.assertBetween(result.confidence, 0, 1, 'Confidence should be 0-1');
 

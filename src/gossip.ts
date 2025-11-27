@@ -84,20 +84,24 @@ export class NullifierGossip {
       return 0; // Never seen
     }
 
-    // Compute confidence based on:
-    // - How many peers reported it
-    // - How long ago it was first seen
-    // - How many total peers we have
+    // For double-spend detection, only peer count matters.
+    // Age is irrelevant - a legitimate transfer gets older over time,
+    // but that doesn't make it a double-spend.
+    //
+    // peerCount = 1: Seen once (legitimate first use)
+    // peerCount > 1: Seen multiple times (likely double-spend)
+    //
+    // We return a confidence score based on how many peers reported it
+    // relative to total peers. This helps distinguish:
+    // - Low confidence (1 peer): Legitimate transfer
+    // - High confidence (many peers): Likely double-spend
 
     const peerConfidence = Math.min(
       record.peerCount / Math.max(this.peerConnections.length, 1),
       1.0
     );
 
-    const ageMs = Date.now() - record.firstSeen;
-    const ageConfidence = Math.min(ageMs / 10_000, 1.0); // Max confidence after 10s
-
-    return Math.max(peerConfidence, ageConfidence);
+    return peerConfidence;
   }
 
   /**
