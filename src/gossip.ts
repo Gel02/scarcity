@@ -245,6 +245,7 @@ export class NullifierGossip {
         }
       }
     }, this.pruneInterval);
+	}
 
   /**
    * Cleanup resources
