@@ -253,9 +253,16 @@ const witness = new WitnessAdapter({
 // Timestamp transfer package
 const attestation = await witness.timestamp(packageHash);
 
-// Verify attestation
+// Verify attestation (supports both Ed25519 and BLS12-381 signatures)
 const valid = await witness.verify(attestation);
 ```
+
+**BLS Signature Aggregation:**
+- Supports BLS12-381 aggregated signatures (50% bandwidth savings)
+- 3 witnesses: 96 bytes (BLS) vs 192 bytes (Ed25519)
+- Local verification with `@noble/curves` library
+- Automatic fallback to gateway verification
+- Compatible with Witness federation modes
 
 ### HyperToken: P2P Networking
 
@@ -531,7 +538,7 @@ Tests gracefully degrade to fallback mode, demonstrating resilience:
 - [x] Comprehensive integration test suite (100% pass)
 
 **Phase 2: Hardening** 🔨 **IN PROGRESS**
-- [ ] BLS signature aggregation (Witness)
+- [x] BLS signature aggregation (Witness) ✅ **COMPLETE**
 - [x] WebRTC peer connections (HyperToken) ✅ **COMPLETE**
 - [ ] VOPRF production integration (Freebird)
 - [ ] Tor onion service support
