@@ -1,5 +1,4 @@
-# ![🧩 Scarcity](scarcity.webp)
-
+<div align=center><img src="scarcity.webp"></div>
 <div align=center><img src="church.png" width=72 height=72>
 
 _A mission of [The Carpocratian Church of Commonality and Equality](https://carpocratian.org/en/church/)_</div>
