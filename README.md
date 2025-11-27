@@ -23,7 +23,7 @@ Traditional cryptocurrencies require one of three sacrifices:
 Scarcity refuses all three. It's designed from first principles with these constraints:
 
 - **Privacy-Preserving**: With Freebird, sender/receiver unlinkable
-- **Serverless**: With HyperToken, P2P without infrastructure
+- **Serverless**: With HyperToken, P2P without catastrophic infrastructure
 - **Provable**: With Witness, cryptographically verifiable
 - **Zero-Cost**: No gas fees, no mining, no staking
 - **Anonymous**: No wallet addresses, no on-chain history
