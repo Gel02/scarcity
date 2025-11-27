@@ -34,7 +34,7 @@ export async function runDoubleSpendTest(): Promise<void> {
   });
 
   const hypertoken = new HyperTokenAdapter({
-    relayUrl: 'ws://localhost:8080'
+    relayUrl: 'ws://localhost:3000'
   });
 
   try {

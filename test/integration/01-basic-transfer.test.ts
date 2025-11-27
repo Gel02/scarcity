@@ -35,7 +35,7 @@ export async function runBasicTransferTest(): Promise<void> {
   });
 
   const hypertoken = new HyperTokenAdapter({
-    relayUrl: 'ws://localhost:8080'
+    relayUrl: 'ws://localhost:3000'
   });
 
   await runner.run('HyperToken connection', async () => {
