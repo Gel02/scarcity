@@ -2,10 +2,10 @@
  * HyperToken integration adapter
  *
  * Provides P2P network connectivity for gossip protocol using HyperToken's
- * PeerConnection for WebSocket-based P2P networking.
+ * HybridPeerManager for WebSocket + WebRTC P2P networking with automatic upgrade.
  */
 
-import { PeerConnection as HTPeerConnection } from '../vendor/hypertoken/PeerConnection.js';
+import { HybridPeerManager } from '../vendor/hypertoken/HybridPeerManager.js';
 import type { PeerConnection, GossipMessage } from '../types.js';
 
 export interface HyperTokenAdapterConfig {
@@ -13,17 +13,17 @@ export interface HyperTokenAdapterConfig {
 }
 
 /**
- * Wrapper that adapts HyperToken's event-driven PeerConnection
+ * Wrapper that adapts HyperToken's event-driven HybridPeerManager
  * to Scarcity's PeerConnection interface
  */
 class HyperTokenPeerWrapper implements PeerConnection {
   readonly id: string;
-  private htPeerConnection: HTPeerConnection;
+  private htManager: HybridPeerManager;
   private messageHandler?: (data: GossipMessage) => void;
   private targetPeerId: string;
 
-  constructor(htPeerConnection: HTPeerConnection, targetPeerId: string) {
-    this.htPeerConnection = htPeerConnection;
+  constructor(htManager: HybridPeerManager, targetPeerId: string) {
+    this.htManager = htManager;
     this.targetPeerId = targetPeerId;
     this.id = targetPeerId;
   }
@@ -34,11 +34,13 @@ class HyperTokenPeerWrapper implements PeerConnection {
     }
 
     // Send message to specific peer using HyperToken's sendToPeer
-    this.htPeerConnection.sendToPeer(this.targetPeerId, data);
+    // This will use WebRTC if available, otherwise falls back to WebSocket
+    this.htManager.sendToPeer(this.targetPeerId, data);
   }
 
   isConnected(): boolean {
-    return this.htPeerConnection.connected && this.htPeerConnection.peers.has(this.targetPeerId);
+    const wsConnection = this.htManager.getWebSocketConnection();
+    return wsConnection.connected && wsConnection.peers.has(this.targetPeerId);
   }
 
   /**
@@ -62,12 +64,14 @@ class HyperTokenPeerWrapper implements PeerConnection {
 /**
  * Adapter for HyperToken P2P networking
  *
- * Provides WebSocket-based P2P connectivity through a relay server.
+ * Provides hybrid WebSocket + WebRTC P2P connectivity through a relay server.
+ * Automatically upgrades connections to WebRTC for lower latency when possible,
+ * with graceful fallback to WebSocket.
  * Each HyperTokenAdapter instance represents a single peer in the gossip network.
  */
 export class HyperTokenAdapter {
   private readonly relayUrl: string;
-  private htConnection: HTPeerConnection | null = null;
+  private htManager: HybridPeerManager | null = null;
   private peerWrappers = new Map<string, HyperTokenPeerWrapper>();
   private isReady = false;
   private readyPromise: Promise<void>;
@@ -88,10 +92,14 @@ export class HyperTokenAdapter {
    * Connect to relay server
    */
   async connect(): Promise<void> {
-    this.htConnection = new HTPeerConnection(this.relayUrl, null);
+    this.htManager = new HybridPeerManager({
+      url: this.relayUrl,
+      autoUpgrade: true,  // Automatically upgrade to WebRTC
+      upgradeDelay: 1000  // Wait 1s after peer joins before upgrading
+    });
 
     // Set up event handlers
-    this.htConnection.on('net:ready', (evt: any) => {
+    this.htManager.on('net:ready', (evt: any) => {
       this.isReady = true;
       console.log(`[HyperToken] Connected with peer ID: ${evt.payload.peerId}`);
       if (this.readyResolve) {
@@ -99,18 +107,18 @@ export class HyperTokenAdapter {
       }
     });
 
-    this.htConnection.on('net:peer:connected', (evt: any) => {
+    this.htManager.on('net:peer:connected', (evt: any) => {
       const peerId = evt.payload.peerId;
       console.log(`[HyperToken] Peer joined: ${peerId}`);
     });
 
-    this.htConnection.on('net:peer:disconnected', (evt: any) => {
+    this.htManager.on('net:peer:disconnected', (evt: any) => {
       const peerId = evt.payload.peerId;
       console.log(`[HyperToken] Peer left: ${peerId}`);
       this.peerWrappers.delete(peerId);
     });
 
-    this.htConnection.on('net:message', (evt: any) => {
+    this.htManager.on('net:message', (evt: any) => {
       // Route message to appropriate peer wrapper
       const fromPeerId = evt.payload?.fromPeerId || evt.fromPeerId;
       if (fromPeerId) {
@@ -123,7 +131,7 @@ export class HyperTokenAdapter {
       }
     });
 
-    this.htConnection.on('net:error', (evt: any) => {
+    this.htManager.on('net:error', (evt: any) => {
       const error = evt.payload?.error || new Error('Unknown network error');
       console.error(`[HyperToken] Network error:`, error);
       if (this.readyReject && !this.isReady) {
@@ -131,8 +139,20 @@ export class HyperTokenAdapter {
       }
     });
 
+    // Optional: Listen to WebRTC upgrade events for visibility
+    this.htManager.on('rtc:upgraded', (evt: any) => {
+      const { peerId, usingTurn } = evt.payload;
+      const turnInfo = usingTurn ? ' (via TURN)' : '';
+      console.log(`[HyperToken] ✅ WebRTC connection established with ${peerId}${turnInfo}`);
+    });
+
+    this.htManager.on('rtc:downgraded', (evt: any) => {
+      const { peerId } = evt.payload;
+      console.log(`[HyperToken] WebRTC connection lost with ${peerId}, using WebSocket fallback`);
+    });
+
     // Initiate connection
-    this.htConnection.connect();
+    this.htManager.connect();
 
     // Set timeout for connection
     const timeout = setTimeout(() => {
@@ -166,7 +186,7 @@ export class HyperTokenAdapter {
     const targetPeerId = peerId ?? this.generatePeerId();
 
     // If not connected, create a mock peer for fallback mode
-    if (!this.htConnection) {
+    if (!this.htManager) {
       return {
         id: targetPeerId,
         async send(_data: GossipMessage): Promise<void> {
@@ -179,7 +199,7 @@ export class HyperTokenAdapter {
     }
 
     // Create wrapper
-    const wrapper = new HyperTokenPeerWrapper(this.htConnection, targetPeerId);
+    const wrapper = new HyperTokenPeerWrapper(this.htManager, targetPeerId);
     this.peerWrappers.set(targetPeerId, wrapper);
 
     return wrapper;
@@ -196,22 +216,24 @@ export class HyperTokenAdapter {
    * Get our peer ID assigned by the relay server
    */
   getMyPeerId(): string | null {
-    return this.htConnection?.peerId ?? null;
+    return this.htManager?.getPeerId() ?? null;
   }
 
   /**
    * Get list of actually connected peer IDs from relay server
    */
   getConnectedPeerIds(): string[] {
-    return this.htConnection?.peers ? Array.from(this.htConnection.peers) : [];
+    if (!this.htManager) return [];
+    const wsConnection = this.htManager.getWebSocketConnection();
+    return wsConnection.peers ? Array.from(wsConnection.peers) : [];
   }
 
   /**
    * Disconnect from network
    */
   disconnect(): void {
-    if (this.htConnection) {
-      this.htConnection.disconnect();
+    if (this.htManager) {
+      this.htManager.disconnect();
       this.peerWrappers.clear();
       this.isReady = false;
     }
