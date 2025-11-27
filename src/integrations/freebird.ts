@@ -120,13 +120,14 @@ export class FreebirdAdapter implements FreebirdClient {
           body: JSON.stringify({
             token_b64: Buffer.from(token).toString('base64url'),
             issuer_id: this.metadata.issuer_id,
-            exp: Math.floor(Date.now() / 1000) + 3600
+            exp: Math.floor(Date.now() / 1000) + 3600,
+            epoch: this.metadata.epoch || 0  // Key rotation epoch
           })
         });
 
         if (response.ok) {
           const data = await response.json();
-          return data.valid === true;
+          return data.ok === true;  // Changed from data.valid to data.ok
         }
       } catch (error) {
         console.warn('[Freebird] Token verification failed, using fallback:', error);
