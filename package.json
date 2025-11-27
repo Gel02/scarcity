@@ -1,0 +1,32 @@
+{
+  "name": "scarce",
+  "version": "0.1.0",
+  "description": "Privacy-preserving P2P value transfer protocol with gossip-based double-spend prevention",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "node --test",
+    "lint": "eslint src/"
+  },
+  "keywords": [
+    "privacy",
+    "p2p",
+    "cryptocurrency",
+    "gossip",
+    "zero-knowledge",
+    "anonymous"
+  ],
+  "author": "The Carpocratian Church of Commonality and Equality",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@noble/hashes": "^1.4.0",
+    "@noble/curves": "^1.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3"
+  }
+}
