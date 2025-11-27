@@ -74,6 +74,6 @@ export interface WitnessClient {
 export interface GossipNetwork {
   publish(nullifier: Uint8Array, proof: Attestation): Promise<void>;
   checkNullifier(nullifier: Uint8Array): Promise<number>;
-  onReceive(handler: (data: GossipMessage) => Promise<void>): void;
+  setReceiveHandler(handler: (data: GossipMessage) => Promise<void>): void;
   readonly peers: PeerConnection[];
 }
