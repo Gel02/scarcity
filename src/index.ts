@@ -14,7 +14,7 @@ export { Crypto } from './crypto.js';
 
 export { FreebirdAdapter } from './integrations/freebird.js';
 export { WitnessAdapter } from './integrations/witness.js';
-export { HyperTokenAdapter, MockPeerConnection } from './integrations/hypertoken.js';
+export { HyperTokenAdapter } from './integrations/hypertoken.js';
 
 export type {
   PublicKey,
