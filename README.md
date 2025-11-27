@@ -267,6 +267,7 @@ const hypertoken = new HyperTokenAdapter({
 await hypertoken.connect();
 
 // Create peer connections for gossip
+// Connections automatically upgrade from WebSocket to WebRTC for lower latency
 const peers = [
   hypertoken.createPeer(),
   hypertoken.createPeer(),
@@ -275,6 +276,13 @@ const peers = [
 
 gossip.addPeer(peers[0]);
 ```
+
+**Hybrid Architecture (WebSocket + WebRTC):**
+- Starts with WebSocket relay for initial connection and signaling
+- Automatically upgrades to WebRTC DataChannel for direct P2P (lower latency)
+- Falls back to WebSocket gracefully if WebRTC fails (NAT traversal issues)
+- TURN relay support for restrictive network environments
+- Transparent to the gossip protocol - same API for both transports
 
 ---
 
@@ -522,9 +530,9 @@ Tests gracefully degrade to fallback mode, demonstrating resilience:
 - [x] Real Witness threshold timestamping
 - [x] Comprehensive integration test suite (100% pass)
 
-**Phase 2: Hardening**
+**Phase 2: Hardening** 🔨 **IN PROGRESS**
 - [ ] BLS signature aggregation (Witness)
-- [ ] WebRTC peer connections (HyperToken)
+- [x] WebRTC peer connections (HyperToken) ✅ **COMPLETE**
 - [ ] VOPRF production integration (Freebird)
 - [ ] Tor onion service support
 
