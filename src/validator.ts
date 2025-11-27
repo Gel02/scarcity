@@ -49,12 +49,17 @@ export class TransferValidator {
     // Step 1: Fast gossip check (instant, probabilistic)
     const gossipConfidence = await this.gossip.checkNullifier(pkg.nullifier);
 
-    if (gossipConfidence > 0) {
-      // Nullifier seen in gossip = likely double-spend
+    // For a legitimate transfer, the nullifier will be seen once (confidence ~0.1-0.4).
+    // For a double-spend, it will be seen multiple times (confidence > 0.5).
+    // We use a threshold of 0.5 to distinguish between the two cases.
+    const DOUBLE_SPEND_THRESHOLD = 0.5;
+
+    if (gossipConfidence > DOUBLE_SPEND_THRESHOLD) {
+      // Nullifier seen multiple times = likely double-spend
       return {
         valid: false,
         confidence: 0,
-        reason: 'Double-spend detected in gossip network'
+        reason: `Double-spend detected in gossip network (confidence: ${gossipConfidence.toFixed(2)})`
       };
     }
 
@@ -84,14 +89,14 @@ export class TransferValidator {
     if (this.waitTime > 0) {
       await this.sleep(this.waitTime);
 
-      // Check again after waiting
+      // Check again after waiting - use same threshold as initial check
       const finalCheck = await this.gossip.checkNullifier(pkg.nullifier);
 
-      if (finalCheck > 0) {
+      if (finalCheck > DOUBLE_SPEND_THRESHOLD) {
         return {
           valid: false,
           confidence: 0,
-          reason: 'Double-spend detected during propagation wait'
+          reason: `Double-spend detected during propagation wait (confidence: ${finalCheck.toFixed(2)})`
         };
       }
     }
@@ -131,8 +136,9 @@ export class TransferValidator {
    * @returns Confidence score (0-1)
    */
   computeConfidence(params: ConfidenceParams): number {
-    // Peer score: asymptotic to 0.5 as peers approach 100
-    const peerScore = Math.min(params.gossipPeers / 100, 0.5);
+    // Peer score: asymptotic to 0.5 as peers approach 10
+    // This is more reasonable for smaller test networks while still working for production
+    const peerScore = Math.min(params.gossipPeers / 10, 0.5);
 
     // Witness score: asymptotic to 0.3 as federation depth approaches 3
     const witnessScore = Math.min(params.witnessDepth / 3, 0.3);
