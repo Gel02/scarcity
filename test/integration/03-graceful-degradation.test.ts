@@ -7,7 +7,7 @@
  */
 
 import {
-  ScarceToken,
+  ScarbuckToken,
   NullifierGossip,
   TransferValidator,
   FreebirdAdapter,
@@ -110,7 +110,7 @@ export async function runGracefulDegradationTest(): Promise<void> {
     });
 
     // Mint, transfer, receive should all work in fallback
-    const token = ScarceToken.mint(100, freebird, witness, gossip);
+    const token = ScarbuckToken.mint(100, freebird, witness, gossip);
     const { publicKey, secret } = createTestKeyPair();
 
     const transferPkg = await token.transfer(publicKey);
@@ -124,7 +124,7 @@ export async function runGracefulDegradationTest(): Promise<void> {
     );
 
     if (result.valid) {
-      const receivedToken = await ScarceToken.receive(
+      const receivedToken = await ScarbuckToken.receive(
         transferPkg,
         secret,
         freebird,

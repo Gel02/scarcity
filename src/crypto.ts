@@ -1,5 +1,5 @@
 /**
- * Cryptographic primitives for Scarce protocol
+ * Cryptographic primitives for Scarcity protocol
  */
 
 import { sha256 } from '@noble/hashes/sha256';
@@ -13,7 +13,6 @@ export class Crypto {
   static randomBytes(length: number): Uint8Array {
     return randomBytes(length);
   }
-
   /**
    * Hash arbitrary data with SHA-256
    */
@@ -32,33 +31,28 @@ export class Crypto {
 
     return sha256(concatBytes(...combined));
   }
-
   /**
    * Convert bytes to hex string
    */
   static toHex(bytes: Uint8Array): string {
     return bytesToHex(bytes);
   }
-
   /**
    * Convert hex string to bytes
    */
   static fromHex(hex: string): Uint8Array {
     return hexToBytes(hex);
   }
-
   /**
    * Generate nullifier from secret, token ID, and timestamp
    * Nullifier = H(secret || tokenId || timestamp)
    */
   static generateNullifier(
     secret: Uint8Array,
-    tokenId: string,
-    timestamp: number
+    tokenId: string
   ): Uint8Array {
-    return this.hash(secret, tokenId, timestamp);
+    return this.hash(secret, tokenId);
   }
-
   /**
    * Constant-time comparison of byte arrays
    */
@@ -74,7 +68,6 @@ export class Crypto {
 
     return result === 0;
   }
-
   /**
    * Generate a commitment to recipient public key
    * In production this would use Freebird's blinding
@@ -83,7 +76,6 @@ export class Crypto {
     const nonce = this.randomBytes(32);
     return this.hash(publicKey, nonce);
   }
-
   /**
    * Hash transfer package for Witness timestamping
    */

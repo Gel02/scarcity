@@ -6,7 +6,7 @@
  */
 
 import {
-  ScarceToken,
+  ScarbuckToken,
   NullifierGossip,
   TransferValidator,
   FreebirdAdapter,
@@ -35,7 +35,7 @@ export async function runBasicTransferTest(): Promise<void> {
   });
 
   const hypertoken = new HyperTokenAdapter({
-    relayUrl: 'ws://localhost:8080'
+    relayUrl: 'ws://localhost:3000'
   });
 
   await runner.run('HyperToken connection', async () => {
@@ -72,10 +72,10 @@ export async function runBasicTransferTest(): Promise<void> {
   });
 
   // Test 1: Mint a token
-  let token: ScarceToken;
+  let token: ScarbuckToken;
 
   await runner.run('Token minting', async () => {
-    token = ScarceToken.mint(100, freebird, witness, gossip);
+    token = ScarbuckToken.mint(100, freebird, witness, gossip);
 
     const metadata = token.getMetadata();
     runner.assert(metadata.id.length > 0, 'Token should have ID');
@@ -136,7 +136,7 @@ export async function runBasicTransferTest(): Promise<void> {
 
   // Test 6: Receive token
   await runner.run('Token reception', async () => {
-    const receivedToken = await ScarceToken.receive(
+    const receivedToken = await ScarbuckToken.receive(
       transferPkg,
       recipientSecret,
       freebird,

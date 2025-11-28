@@ -1,5 +1,5 @@
 /**
- * Scarce: Privacy-preserving P2P value transfer protocol
+ * Scarcity: Privacy-preserving P2P value transfer protocol
  *
  * A gossip-based cryptocurrency with double-spend prevention
  * through distributed nullifier sets and threshold timestamping.
@@ -7,7 +7,7 @@
  * @module scarce
  */
 
-export { ScarceToken } from './token.js';
+export { ScarbuckToken } from './token.js';
 export { NullifierGossip } from './gossip.js';
 export { TransferValidator } from './validator.js';
 export { Crypto } from './crypto.js';
@@ -31,7 +31,7 @@ export type {
   GossipNetwork
 } from './types.js';
 
-export type { ScarceTokenConfig } from './token.js';
+export type { ScarbuckTokenConfig } from './token.js';
 export type { ValidatorConfig } from './validator.js';
 export type { GossipConfig } from './gossip.js';
 export type { FreebirdAdapterConfig } from './integrations/freebird.js';

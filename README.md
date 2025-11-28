@@ -48,11 +48,30 @@ Instead of a global ledger, Scarcity uses:
 2. **Witness Timestamping** - Ground truth for disputes
 3. **Probabilistic Acceptance** - You don't need 100% certainty instantly
 
+## Economic Model: Lazy Demurrage
+
+Scarcity implements a novel economic primitive we call **Lazy Demurrage**—a system where currency behaves less like immutable gold and more like metabolic energy.
+
+By enforcing a **Rolling Validity Window** (default ~1.5 years), Scarcity creates a high-velocity economy that automatically prunes dead capital. This mechanism draws on three historical and biological precedents:
+
+### 1. The Validity Cliff (Digital Escheatment)
+Traditional demurrage charges a complex negative interest rate (e.g., -1% per month). Scarcity implements a computationally efficient **Validity Cliff**.
+
+A token retains **100%** of its value for its entire validity window. However, if it is not transferred (refreshed) before the window expires, its value drops instantly to **0**. This acts as a decentralized form of **Escheatment**. Instead of a central bank seizing dormant accounts, the network itself reclaims the storage resources, and the token becomes unspendable static.
+
+### 2. Metabolic Money (ATP)
+Unlike Bitcoin, which treats coins as immutable rocks that can sit in a desert for a thousand years, Scarcity treats tokens like **ATP** in a biological cell. Money is potential energy that must be used or regenerated to persist.
+
+This model effectively eliminates the "Lost Coin" problem. If keys are lost, the network does not carry the burden of that unspendable UTXO forever. The economy metabolizes its own history, ensuring the ledger size remains bounded $O(1)$ relative to time.
+
+### 3. Gesellian "Rusting Money"
+This architecture effectively digitizes the **Wörgl Experiment** (1932) and Silvio Gesell's concept of *Freigeld* ("Free Money"). Just as the citizens of Wörgl had to affix a stamp to their banknotes monthly to keep them valid, Scarcity users must cryptographically "refresh" their funds by moving them to a new secret. This structural disincentive to hoarding forces circulation and economic activity.
+
 ### Three-Layer Architecture
 
 ```
 ┌─────────────────────────────────────────────────┐
-│  ScarceToken: Value transfer primitive          │
+│  ScarbuckToken: Value transfer primitive          │
 │  • Freebird: Anonymous ownership proofs         │
 │  • Nullifiers: Unique spend identifiers         │
 │  • Transfer packages with commitments           │
@@ -80,7 +99,7 @@ Instead of a global ledger, Scarcity uses:
 ### Minting
 
 ```typescript
-const token = ScarceToken.mint(100, freebird, witness, gossip);
+const token = ScarbuckToken.mint(100, freebird, witness, gossip);
 ```
 
 Creates a new token with:
@@ -103,7 +122,7 @@ const pkg = await token.transfer(recipientPublicKey);
 ### Receive
 
 ```typescript
-const newToken = await ScarceToken.receive(
+const newToken = await ScarbuckToken.receive(
   pkg,
   recipientSecret,
   freebird,
@@ -280,7 +299,7 @@ gossip.addPeer(peers[0]);
 
 ```typescript
 import {
-  ScarceToken,
+  ScarbuckToken,
   NullifierGossip,
   TransferValidator,
   FreebirdAdapter,
@@ -325,7 +344,7 @@ const validator = new TransferValidator({
 });
 
 // Mint a token
-const token = ScarceToken.mint(100, freebird, witness, gossip);
+const token = ScarbuckToken.mint(100, freebird, witness, gossip);
 
 // Transfer to recipient
 const recipientKey = { bytes: new Uint8Array(32) }; // recipient's public key
@@ -339,7 +358,7 @@ if (result.valid) {
 
   // Receive the token
   const recipientSecret = new Uint8Array(32); // recipient's secret
-  const receivedToken = await ScarceToken.receive(
+  const receivedToken = await ScarbuckToken.receive(
     transferPkg,
     recipientSecret,
     freebird,

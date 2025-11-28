@@ -1,5 +1,5 @@
 /**
- * ScarceToken: Privacy-preserving P2P value transfer
+ * ScarbuckToken: Privacy-preserving P2P value transfer
  */
 
 import { Crypto } from './crypto.js';
@@ -12,7 +12,7 @@ import type {
   Attestation
 } from './types.js';
 
-export interface ScarceTokenConfig {
+export interface ScarbuckTokenConfig {
   readonly id: string;
   readonly amount: number;
   readonly secret: Uint8Array;
@@ -21,7 +21,7 @@ export interface ScarceTokenConfig {
   readonly gossip: GossipNetwork;
 }
 
-export class ScarceToken {
+export class ScarbuckToken {
   private readonly id: string;
   private readonly amount: number;
   private readonly secret: Uint8Array;
@@ -30,7 +30,7 @@ export class ScarceToken {
   private readonly gossip: GossipNetwork;
   private spent: boolean = false;
 
-  constructor(config: ScarceTokenConfig) {
+  constructor(config: ScarbuckTokenConfig) {
     this.id = config.id;
     this.amount = config.amount;
     this.secret = config.secret;
@@ -59,10 +59,9 @@ export class ScarceToken {
 
     // A. Create nullifier (unique spend identifier)
     const timestamp = Date.now();
-    const nullifier = Crypto.generateNullifier(
+    const nullifier = Crypto.hash(
       this.secret,
-      this.id,
-      timestamp
+      this.id
     );
 
     // B. Blind commitment to recipient (privacy-preserving)
@@ -107,18 +106,18 @@ export class ScarceToken {
    * @param freebird - Freebird client
    * @param witness - Witness client
    * @param gossip - Gossip network
-   * @returns New ScarceToken instance
+   * @returns New ScarbuckToken instance
    */
   static mint(
     amount: number,
     freebird: FreebirdClient,
     witness: WitnessClient,
     gossip: GossipNetwork
-  ): ScarceToken {
+  ): ScarbuckToken {
     const id = Crypto.toHex(Crypto.randomBytes(32));
     const secret = Crypto.randomBytes(32);
 
-    return new ScarceToken({
+    return new ScarbuckToken({
       id,
       amount,
       secret,
@@ -136,7 +135,7 @@ export class ScarceToken {
    * @param freebird - Freebird client
    * @param witness - Witness client
    * @param gossip - Gossip network
-   * @returns New ScarceToken instance for recipient
+   * @returns New ScarbuckToken instance for recipient
    */
   static async receive(
     pkg: TransferPackage,
@@ -144,7 +143,7 @@ export class ScarceToken {
     freebird: FreebirdClient,
     witness: WitnessClient,
     gossip: GossipNetwork
-  ): Promise<ScarceToken> {
+  ): Promise<ScarbuckToken> {
     // Verify the transfer proof
     const valid = await witness.verify(pkg.proof);
     if (!valid) {
@@ -161,7 +160,7 @@ export class ScarceToken {
 
     // Create new token for recipient
     // Note: In production, recipientSecret would be used to unblind the commitment
-    return new ScarceToken({
+    return new ScarbuckToken({
       id: pkg.tokenId,
       amount: pkg.amount,
       secret: recipientSecret,
