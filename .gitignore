@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 node_modules/
 dist/
 *.log
@@ -6,3 +7,36 @@ dist/
 coverage/
 .nyc_output/
 *.tsbuildinfo
+=======
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# Testing
+coverage/
+.nyc_output/
+>>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50

@@ -1,5 +1,9 @@
+<<<<<<< HEAD
 # ![🧩 Scarcity](scarcity.webp)
 
+=======
+<div align=center><img src="scarcity.webp"></div>
+>>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
 <div align=center><img src="church.png" width=72 height=72>
 
 _A mission of [The Carpocratian Church of Commonality and Equality](https://carpocratian.org/en/church/)_</div>
@@ -23,9 +27,15 @@ Traditional cryptocurrencies require one of three sacrifices:
 
 Scarcity refuses all three. It's designed from first principles with these constraints:
 
+<<<<<<< HEAD
 - **Privacy-Preserving**: Like Freebird, sender/receiver unlinkable
 - **Serverless**: Like HyperToken, P2P without infrastructure
 - **Provable**: Like Witness, cryptographically verifiable
+=======
+- **Privacy-Preserving**: With Freebird, sender/receiver unlinkable
+- **Serverless**: With HyperToken, P2P without catastrophic infrastructure
+- **Provable**: With Witness, cryptographically verifiable
+>>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
 - **Zero-Cost**: No gas fees, no mining, no staking
 - **Anonymous**: No wallet addresses, no on-chain history
 
@@ -49,11 +59,37 @@ Instead of a global ledger, Scarcity uses:
 2. **Witness Timestamping** - Ground truth for disputes
 3. **Probabilistic Acceptance** - You don't need 100% certainty instantly
 
+<<<<<<< HEAD
+=======
+## Economic Model: Lazy Demurrage
+
+Scarcity implements a novel economic primitive we call **Lazy Demurrage**—a system where currency behaves less like immutable gold and more like metabolic energy.
+
+By enforcing a **Rolling Validity Window** (default ~1.5 years), Scarcity creates a high-velocity economy that automatically prunes dead capital. This mechanism draws on three historical and biological precedents:
+
+### 1. The Validity Cliff (Digital Escheatment)
+Traditional demurrage charges a complex negative interest rate (e.g., -1% per month). Scarcity implements a computationally efficient **Validity Cliff**.
+
+A token retains **100%** of its value for its entire validity window. However, if it is not transferred (refreshed) before the window expires, its value drops instantly to **0**. This acts as a decentralized form of **Escheatment**. Instead of a central bank seizing dormant accounts, the network itself reclaims the storage resources, and the token becomes unspendable static.
+
+### 2. Metabolic Money (ATP)
+Unlike Bitcoin, which treats coins as immutable rocks that can sit in a desert for a thousand years, Scarcity treats tokens like **ATP** in a biological cell. Money is potential energy that must be used or regenerated to persist.
+
+This model effectively eliminates the "Lost Coin" problem. If keys are lost, the network does not carry the burden of that unspendable UTXO forever. The economy metabolizes its own history, ensuring the ledger size remains bounded $O(1)$ relative to time.
+
+### 3. Gesellian "Rusting Money"
+This architecture effectively digitizes the **Wörgl Experiment** (1932) and Silvio Gesell's concept of *Freigeld* ("Free Money"). Just as the citizens of Wörgl had to affix a stamp to their banknotes monthly to keep them valid, Scarcity users must cryptographically "refresh" their funds by moving them to a new secret. This structural disincentive to hoarding forces circulation and economic activity.
+
+>>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
 ### Three-Layer Architecture
 
 ```
 ┌─────────────────────────────────────────────────┐
+<<<<<<< HEAD
 │  ScarceToken: Value transfer primitive          │
+=======
+│  ScarbuckToken: Value transfer primitive          │
+>>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
 │  • Freebird: Anonymous ownership proofs         │
 │  • Nullifiers: Unique spend identifiers         │
 │  • Transfer packages with commitments           │
@@ -81,7 +117,11 @@ Instead of a global ledger, Scarcity uses:
 ### Minting
 
 ```typescript
+<<<<<<< HEAD
 const token = ScarceToken.mint(100, freebird, witness, gossip);
+=======
+const token = ScarbuckToken.mint(100, freebird, witness, gossip);
+>>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
 ```
 
 Creates a new token with:
@@ -104,7 +144,11 @@ const pkg = await token.transfer(recipientPublicKey);
 ### Receive
 
 ```typescript
+<<<<<<< HEAD
 const newToken = await ScarceToken.receive(
+=======
+const newToken = await ScarbuckToken.receive(
+>>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
   pkg,
   recipientSecret,
   freebird,
@@ -138,7 +182,11 @@ const result = await validator.validateTransfer(pkg);
 **Confidence Scoring:**
 ```
 confidence = peerScore + witnessScore + timeScore
+<<<<<<< HEAD
            = (peers/100) + (depth/3) + (wait/10s)
+=======
+           = (peers/10) + (depth/3) + (wait/10s)
+>>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
            = up to 0.5  + up to 0.3 + up to 0.2
            = max 1.0 (perfect certainty)
 ```
@@ -235,10 +283,24 @@ const witness = new WitnessAdapter({
 // Timestamp transfer package
 const attestation = await witness.timestamp(packageHash);
 
+<<<<<<< HEAD
 // Verify attestation
 const valid = await witness.verify(attestation);
 ```
 
+=======
+// Verify attestation (supports both Ed25519 and BLS12-381 signatures)
+const valid = await witness.verify(attestation);
+```
+
+**BLS Signature Aggregation:**
+- Supports BLS12-381 aggregated signatures (50% bandwidth savings)
+- 3 witnesses: 96 bytes (BLS) vs 192 bytes (Ed25519)
+- Local verification with `@noble/curves` library
+- Automatic fallback to gateway verification
+- Compatible with Witness federation modes
+
+>>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
 ### HyperToken: P2P Networking
 
 ```typescript
@@ -249,6 +311,10 @@ const hypertoken = new HyperTokenAdapter({
 await hypertoken.connect();
 
 // Create peer connections for gossip
+<<<<<<< HEAD
+=======
+// Connections automatically upgrade from WebSocket to WebRTC for lower latency
+>>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
 const peers = [
   hypertoken.createPeer(),
   hypertoken.createPeer(),
@@ -258,6 +324,16 @@ const peers = [
 gossip.addPeer(peers[0]);
 ```
 
+<<<<<<< HEAD
+=======
+**Hybrid Architecture (WebSocket + WebRTC):**
+- Starts with WebSocket relay for initial connection and signaling
+- Automatically upgrades to WebRTC DataChannel for direct P2P (lower latency)
+- Falls back to WebSocket gracefully if WebRTC fails (NAT traversal issues)
+- TURN relay support for restrictive network environments
+- Transparent to the gossip protocol - same API for both transports
+
+>>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
 ---
 
 ## Usage Example
@@ -266,7 +342,11 @@ gossip.addPeer(peers[0]);
 
 ```typescript
 import {
+<<<<<<< HEAD
   ScarceToken,
+=======
+  ScarbuckToken,
+>>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
   NullifierGossip,
   TransferValidator,
   FreebirdAdapter,
@@ -311,7 +391,11 @@ const validator = new TransferValidator({
 });
 
 // Mint a token
+<<<<<<< HEAD
 const token = ScarceToken.mint(100, freebird, witness, gossip);
+=======
+const token = ScarbuckToken.mint(100, freebird, witness, gossip);
+>>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
 
 // Transfer to recipient
 const recipientKey = { bytes: new Uint8Array(32) }; // recipient's public key
@@ -325,7 +409,11 @@ if (result.valid) {
 
   // Receive the token
   const recipientSecret = new Uint8Array(32); // recipient's secret
+<<<<<<< HEAD
   const receivedToken = await ScarceToken.receive(
+=======
+  const receivedToken = await ScarbuckToken.receive(
+>>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
     transferPkg,
     recipientSecret,
     freebird,
@@ -402,6 +490,63 @@ npm run build
 npm test
 ```
 
+<<<<<<< HEAD
+=======
+### Running Integration Tests
+
+**Prerequisites:**
+The integration tests require the following services:
+
+1. **HyperToken Relay Server**
+   ```bash
+   cd /path/to/hypertoken
+   node start-relay.js
+   ```
+   Default: `ws://localhost:8080`
+
+2. **Witness Gateway + Nodes**
+   ```bash
+   # See https://github.com/flammafex/witness
+   ```
+   Default: `http://localhost:8080`
+
+3. **Freebird Issuer + Verifier**
+   ```bash
+   # See https://github.com/flammafex/freebird
+   ```
+   Default issuer: `http://localhost:8081`
+   Default verifier: `http://localhost:8082`
+
+**Run Tests:**
+```bash
+# Full integration test suite
+npm test
+
+# Individual test suites
+npm run test:basic          # Basic token transfer
+npm run test:double-spend   # Double-spend detection
+npm run test:degradation    # Graceful degradation (works without services)
+```
+
+**Expected Results (with all services running):**
+```
+✅ Graceful Degradation: 100% pass (5/5 tests)
+✅ Basic Token Transfer: 100% pass (9/9 tests)
+✅ Double-Spend Detection: 100% pass (7/7 tests)
+
+Total: 21/21 tests passing
+Pass Rate: 100.0%
+```
+
+**Without Services:**
+Tests gracefully degrade to fallback mode, demonstrating resilience:
+```
+✅ Graceful Degradation: 100% pass (5/5 tests)
+⚠️  Basic Token Transfer: 88.9% pass (8/9 tests)
+✅ Double-Spend Detection: 100% pass (7/7 tests)
+```
+
+>>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
 ### Production Considerations
 
 **Gossip Network:**
@@ -441,6 +586,7 @@ npm test
 
 ## Roadmap
 
+<<<<<<< HEAD
 **Phase 1: Core Protocol** ✅
 - [x] Token minting and transfer
 - [x] Nullifier gossip network
@@ -450,6 +596,20 @@ npm test
 **Phase 2: Hardening**
 - [ ] BLS signature aggregation (Witness)
 - [ ] WebRTC peer connections (HyperToken)
+=======
+**Phase 1: Core Protocol** ✅ **COMPLETE**
+- [x] Token minting and transfer
+- [x] Nullifier gossip network
+- [x] Probabilistic validation
+- [x] Real HyperToken P2P networking (WebSocket relay)
+- [x] Real Freebird HTTP client integration
+- [x] Real Witness threshold timestamping
+- [x] Comprehensive integration test suite (100% pass)
+
+**Phase 2: Hardening** 🔨 **IN PROGRESS**
+- [x] BLS signature aggregation (Witness) ✅ **COMPLETE**
+- [x] WebRTC peer connections (HyperToken) ✅ **COMPLETE**
+>>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
 - [ ] VOPRF production integration (Freebird)
 - [ ] Tor onion service support
 
@@ -500,7 +660,11 @@ On receive(nullifier, proof):
 ### Confidence Scoring
 
 ```typescript
+<<<<<<< HEAD
 peerScore = min(peers / 100, 0.5)      // Up to 50%
+=======
+peerScore = min(peers / 10, 0.5)       // Up to 50%
+>>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
 witnessScore = min(depth / 3, 0.3)     // Up to 30%
 timeScore = min(waitMs / 10_000, 0.2)  // Up to 20%
 
@@ -535,7 +699,11 @@ A: No. Scarcity is zero-cost by design. No incentives, no fees.
 A: Application-specific. Could be fiat-backed, work-based, time-based, etc.
 
 **Q: Is this production-ready?**
+<<<<<<< HEAD
 A: No. This is a research prototype. Freebird/Witness/HyperToken integration is mocked.
+=======
+A: Phase 1 is complete with working integrations. However, this is still a research prototype requiring Phase 2 hardening (BLS aggregation, WebRTC, production VOPRF) before production use.
+>>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
 
 ---
 
@@ -551,4 +719,8 @@ Apache License 2.0
 - **[HyperToken](https://github.com/flammafex/hypertoken)**: Distributed state synchronization
 - **[Witness](https://github.com/flammafex/witness)**: Threshold signature timestamping
 
+<<<<<<< HEAD
 **Scarcity: You fucked with the best.**
+=======
+**Scarcity: You're fucking with the best.**
+>>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50

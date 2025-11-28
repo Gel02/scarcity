@@ -1,5 +1,9 @@
 /**
+<<<<<<< HEAD
  * Core type definitions for Scarce protocol
+=======
+ * Core type definitions for Scarcity protocol
+>>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
  */
 
 export interface PublicKey {
@@ -20,6 +24,10 @@ export interface Attestation {
   readonly timestamp: number;
   readonly signatures: string[];
   readonly witnessIds: string[];
+<<<<<<< HEAD
+=======
+  readonly raw?: any;  // Original SignedAttestation from Witness for verification
+>>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
 }
 
 export interface TransferPackage {
@@ -74,6 +82,10 @@ export interface WitnessClient {
 export interface GossipNetwork {
   publish(nullifier: Uint8Array, proof: Attestation): Promise<void>;
   checkNullifier(nullifier: Uint8Array): Promise<number>;
+<<<<<<< HEAD
   onReceive(handler: (data: GossipMessage) => Promise<void>): void;
+=======
+  setReceiveHandler(handler: (data: GossipMessage) => Promise<void>): void;
+>>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
   readonly peers: PeerConnection[];
 }
