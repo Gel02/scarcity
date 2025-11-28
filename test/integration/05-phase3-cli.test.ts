@@ -47,7 +47,7 @@ export async function runPhase3CLITests(): Promise<any> {
   });
 
   const witness = new WitnessAdapter({
-    gatewayUrl: 'http://localhost:8080',
+    gatewayUrl: 'http://localhost:5001',
     networkId: 'test-network'
   });
 
@@ -408,7 +408,7 @@ export async function runPhase3CLITests(): Promise<any> {
   await runner.run('CLI: Bridge token to target federation', async () => {
     // Setup target federation
     const targetWitness = new WitnessAdapter({
-      gatewayUrl: 'http://localhost:8090',
+      gatewayUrl: 'http://localhost:5002',
       networkId: 'test-network-2'
     });
 

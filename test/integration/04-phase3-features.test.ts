@@ -37,7 +37,7 @@ export async function runPhase3Tests(): Promise<any> {
   });
 
   const witness = new WitnessAdapter({
-    gatewayUrl: 'http://localhost:8080',
+    gatewayUrl: 'http://localhost:5001',
     networkId: 'test-network'
   });
 
@@ -328,7 +328,7 @@ export async function runPhase3Tests(): Promise<any> {
   // Test 11: Cross-Federation Bridge
   await runner.run('Cross-federation bridge', async () => {
     const witness2 = new WitnessAdapter({
-      gatewayUrl: 'http://localhost:8080',
+      gatewayUrl: 'http://localhost:5002',
       networkId: 'test-federation-2'
     });
 

@@ -30,7 +30,7 @@ export async function runDoubleSpendTest(): Promise<void> {
   });
 
   const witness = new WitnessAdapter({
-    gatewayUrl: 'http://localhost:8080'
+    gatewayUrl: 'http://localhost:5001'
   });
 
   const hypertoken = new HyperTokenAdapter({
