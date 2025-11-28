@@ -406,7 +406,7 @@ export async function runPhase3CLITests(): Promise<any> {
   let bridgePackage: any;
 
   await runner.run('CLI: Bridge token to target federation', async () => {
-    // Setup target federation
+    // Setup target federation (separate gateway for cross-federation testing)
     const targetWitness = new WitnessAdapter({
       gatewayUrl: 'http://localhost:5002',
       networkId: 'test-network-2'
