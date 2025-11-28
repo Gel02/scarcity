@@ -144,8 +144,20 @@ export class WitnessAdapter implements WitnessClient {
             }
           }
 
+          // Ensure hash is always a hex string (gateway may return Uint8Array)
+          let hashString = hash; // Default to input hash
+          const gatewayHash = data.attestation?.attestation?.hash;
+          if (gatewayHash) {
+            if (typeof gatewayHash === 'string') {
+              hashString = gatewayHash;
+            } else if (gatewayHash instanceof Uint8Array || Array.isArray(gatewayHash)) {
+              // Convert Uint8Array or array to hex string
+              hashString = Crypto.toHex(new Uint8Array(gatewayHash));
+            }
+          }
+
           return {
-            hash: data.attestation?.attestation?.hash || hash,
+            hash: hashString,
             timestamp: data.attestation?.attestation?.timestamp
               ? data.attestation.attestation.timestamp * 1000  // Convert seconds to milliseconds
               : Date.now(),
@@ -444,8 +456,20 @@ export class WitnessAdapter implements WitnessClient {
         if (response.ok) {
           const data = await response.json();
 
+          // Ensure hash is always a hex string (gateway may return Uint8Array)
+          let hashString = hash; // Default to input hash
+          const gatewayHash = data.attestation?.attestation?.hash;
+          if (gatewayHash) {
+            if (typeof gatewayHash === 'string') {
+              hashString = gatewayHash;
+            } else if (gatewayHash instanceof Uint8Array || Array.isArray(gatewayHash)) {
+              // Convert Uint8Array or array to hex string
+              hashString = Crypto.toHex(new Uint8Array(gatewayHash));
+            }
+          }
+
           return {
-            hash: data.attestation?.attestation?.hash || hash,
+            hash: hashString,
             timestamp: data.attestation?.attestation?.timestamp
               ? data.attestation.attestation.timestamp * 1000  // Convert seconds to milliseconds
               : Date.now(),
