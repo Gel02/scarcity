@@ -744,6 +744,284 @@ const isValid = await bridge.verifyBridge(bridgePkg);
 
 ---
 
+## CLI Tools
+
+Scarcity includes a command-line interface (`scar`) for Phase 3 advanced token operations.
+
+### Installation
+
+```bash
+npm install -g scarcity
+# or run directly
+npx scarcity
+```
+
+### Configuration
+
+The CLI stores wallet data and configuration in `~/.scarcity/`:
+
+```bash
+# View current configuration
+scar config list
+
+# Set Witness gateway
+scar config set witness.gatewayUrl http://localhost:5001
+scar config set witness.networkId my-network
+
+# Set Freebird services
+scar config set freebird.issuerUrl http://localhost:8081
+scar config set freebird.verifierUrl http://localhost:8082
+
+# Set HyperToken relay
+scar config set hypertoken.relayUrl ws://localhost:3000
+```
+
+### Wallet Management
+
+```bash
+# Create a new wallet
+scar wallet create alice
+
+# List all wallets
+scar wallet list
+
+# Show wallet public key
+scar wallet show alice
+
+# Export wallet (private keys - keep secure!)
+scar wallet export alice
+
+# Import wallet
+scar wallet import bob <secret-key>
+```
+
+### Token Management
+
+```bash
+# List all tokens in a wallet
+scar token list alice
+
+# Show token details
+scar token show <token-id>
+
+# Mint a new token (for testing)
+scar token mint alice 100
+```
+
+### Token Splitting
+
+Split a single token into multiple smaller tokens:
+
+```bash
+# Split token into 3 parts: 30, 40, 30
+scar split <token-id> \
+  --amounts 30,40,30 \
+  --recipients <pubkey1>,<pubkey2>,<pubkey3>
+
+# Example with wallet public keys
+scar split token-abc123 \
+  --amounts 30,40,30 \
+  --recipients $(scar wallet show alice -q),$(scar wallet show bob -q),$(scar wallet show carol -q)
+```
+
+**Options:**
+- `--amounts, -a`: Comma-separated amounts (must sum to token amount)
+- `--recipients, -r`: Comma-separated recipient public keys
+
+### Token Merging
+
+Combine multiple tokens into a single larger token:
+
+```bash
+# Merge 3 tokens into one
+scar merge <token-id-1>,<token-id-2>,<token-id-3> \
+  --recipient <recipient-pubkey> \
+  --wallet alice
+
+# Merge all Alice's tokens for Bob
+scar merge $(scar token list alice --ids-only) \
+  --recipient $(scar wallet show bob -q) \
+  --wallet alice
+```
+
+**Options:**
+- `--recipient, -r`: Recipient's public key
+- `--wallet, -w`: Wallet containing the source tokens
+
+### Multi-Party Transfers
+
+Send token portions to multiple recipients in one atomic transaction:
+
+```bash
+# Split payment to 3 recipients
+scar multiparty <token-id> \
+  alice:30 bob:40 carol:30
+
+# Using explicit public keys
+scar multiparty token-abc123 \
+  --split <pubkey1>:30,<pubkey2>:40,<pubkey3>:20
+```
+
+**Format:**
+- `wallet:amount` - Uses wallet's public key
+- `--split` with `pubkey:amount,pubkey:amount,...`
+
+### Hash Time-Locked Contracts (HTLCs)
+
+#### Create Hash-Locked Transfer
+
+Lock a payment that can only be claimed with the correct preimage:
+
+```bash
+# Create HTLC with hash lock
+scar htlc create <token-id> <recipient-pubkey> \
+  --hash-lock <hash> \
+  -H <hash>
+
+# Generate preimage and create HTLC
+PREIMAGE=$(openssl rand -hex 32)
+HASH=$(echo -n "$PREIMAGE" | sha256sum | cut -d' ' -f1)
+scar htlc create token-abc123 $(scar wallet show bob -q) \
+  --hash-lock $HASH
+```
+
+#### Create Time-Locked Transfer
+
+Lock a payment that can be claimed before expiry or refunded after:
+
+```bash
+# Lock for 1 hour (expires at timestamp)
+EXPIRY=$(($(date +%s) * 1000 + 3600000))
+scar htlc create <token-id> <recipient-pubkey> \
+  --time-lock $EXPIRY \
+  --refund-key <refund-pubkey> \
+  -T $EXPIRY
+```
+
+#### Claim HTLC
+
+Recipient claims the locked payment:
+
+```bash
+# Claim hash-locked HTLC with preimage
+scar htlc claim <package-json> \
+  --wallet bob \
+  --preimage $PREIMAGE
+
+# Claim time-locked HTLC before expiry
+scar htlc claim htlc-package.json \
+  --wallet bob
+```
+
+#### Refund HTLC
+
+Original sender refunds after time lock expires:
+
+```bash
+# Refund expired time-locked HTLC
+scar htlc refund <package-json> \
+  --wallet alice
+```
+
+**HTLC Use Cases:**
+- Atomic swaps between parties
+- Conditional payments (unlock with secret)
+- Time-delayed releases
+- Cross-chain trading
+
+### Cross-Federation Bridge
+
+Transfer tokens between different Witness federations:
+
+#### Bridge Transfer
+
+Lock token in source federation and mint in target:
+
+```bash
+# Bridge to target federation
+scar bridge transfer <token-id> <recipient-pubkey> \
+  --target-gateway http://localhost:5002 \
+  --target-network target-network \
+  -g http://localhost:5002 \
+  -n target-network
+
+# Save bridge package for recipient
+scar bridge transfer token-abc123 $(scar wallet show bob -q) \
+  --target-gateway http://federation-b.example.com \
+  --target-network fed-b \
+  > bridge-package.json
+```
+
+#### Claim Bridged Token
+
+Recipient claims in target federation:
+
+```bash
+# Switch to target federation
+scar config set witness.gatewayUrl http://localhost:5002
+scar config set witness.networkId target-network
+
+# Claim the bridged token
+scar bridge claim bridge-package.json \
+  --wallet bob
+```
+
+**Bridge Properties:**
+- Two-phase commit (lock source, mint target)
+- Maintains traceability via token IDs
+- Requires both federations to be online
+- Atomic transfer (all or nothing)
+
+### Package Management
+
+Transfer packages can be saved and shared:
+
+```bash
+# Save package to file
+scar split token-123 --amounts 50,50 --recipients ... > split.json
+
+# Load package
+scar token receive split.json --wallet bob
+
+# Show package details
+scar package show split.json
+```
+
+### Examples
+
+**Complete workflow:**
+
+```bash
+# 1. Setup
+scar config set witness.gatewayUrl http://localhost:5001
+scar wallet create alice
+scar wallet create bob
+
+# 2. Mint token
+scar token mint alice 100
+
+# 3. Split for multiple recipients
+TOKEN=$(scar token list alice --ids-only | head -1)
+scar split $TOKEN \
+  --amounts 40,60 \
+  --recipients $(scar wallet show bob -q),$(scar wallet show alice -q)
+
+# 4. Bob creates HTLC for atomic swap
+BOB_TOKEN=$(scar token list bob --ids-only | head -1)
+PREIMAGE=$(openssl rand -hex 32)
+HASH=$(echo -n "$PREIMAGE" | sha256sum | cut -d' ' -f1)
+scar htlc create $BOB_TOKEN $(scar wallet show alice -q) \
+  --hash-lock $HASH \
+  > htlc-package.json
+
+# 5. Alice claims with preimage
+scar htlc claim htlc-package.json \
+  --wallet alice \
+  --preimage $PREIMAGE
+```
+
+---
+
 ## Performance Characteristics
 
 ### Latency
@@ -907,10 +1185,10 @@ Tests gracefully degrade to fallback mode, demonstrating resilience:
 - [x] Conditional payments (HTLCs) ✅ **COMPLETE**
 - [x] Cross-federation bridging ✅ **COMPLETE**
 
-**Phase 4: Tooling**
+**Phase 4: Tooling** 🔨 **IN PROGRESS** (1/4 complete, 25%)
 - [ ] Web wallet interface
 - [ ] Mobile SDK (React Native)
-- [ ] CLI tools for scripting
+- [x] CLI tools for Phase 3 operations ✅ **COMPLETE** (split, merge, multiparty, HTLC, bridge)
 - [ ] Block explorer (nullifier viewer)
 
 ---
