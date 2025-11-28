@@ -22,9 +22,6 @@ Traditional cryptocurrencies require one of three sacrifices:
 
 Scarcity refuses all three. It's designed from first principles with these constraints:
 
-- **Privacy-Preserving**: Like Freebird, sender/receiver unlinkable
-- **Serverless**: Like HyperToken, P2P without infrastructure
-- **Provable**: Like Witness, cryptographically verifiable
 - **Privacy-Preserving**: With Freebird, sender/receiver unlinkable
 - **Serverless**: With HyperToken, P2P without catastrophic infrastructure
 - **Provable**: With Witness, cryptographically verifiable
@@ -51,44 +48,25 @@ Instead of a global ledger, Scarcity uses:
 2. **Witness Timestamping** - Ground truth for disputes
 3. **Probabilistic Acceptance** - You don't need 100% certainty instantly
 
-## Economic Model: Lazy Demurrage
-
-Scarcity implements a novel economic primitive we call **Lazy Demurrage**—a system where currency behaves less like immutable gold and more like metabolic energy.
-
-By enforcing a **Rolling Validity Window** (default ~1.5 years), Scarcity creates a high-velocity economy that automatically prunes dead capital. This mechanism draws on three historical and biological precedents:
-
-### 1. The Validity Cliff (Digital Escheatment)
-Traditional demurrage charges a complex negative interest rate (e.g., -1% per month). Scarcity implements a computationally efficient **Validity Cliff**.
-
-A token retains **100%** of its value for its entire validity window. However, if it is not transferred (refreshed) before the window expires, its value drops instantly to **0**. This acts as a decentralized form of **Escheatment**. Instead of a central bank seizing dormant accounts, the network itself reclaims the storage resources, and the token becomes unspendable static.
-
-### 2. Metabolic Money (ATP)
-Unlike Bitcoin, which treats coins as immutable rocks that can sit in a desert for a thousand years, Scarcity treats tokens like **ATP** in a biological cell. Money is potential energy that must be used or regenerated to persist.
-
-This model effectively eliminates the "Lost Coin" problem. If keys are lost, the network does not carry the burden of that unspendable UTXO forever. The economy metabolizes its own history, ensuring the ledger size remains bounded $O(1)$ relative to time.
-
-### 3. Gesellian "Rusting Money"
-This architecture effectively digitizes the **Wörgl Experiment** (1932) and Silvio Gesell's concept of *Freigeld* ("Free Money"). Just as the citizens of Wörgl had to affix a stamp to their banknotes monthly to keep them valid, Scarcity users must cryptographically "refresh" their funds by moving them to a new secret. This structural disincentive to hoarding forces circulation and economic activity.
-
 ### Three-Layer Architecture
 
 ```
-┌─────────────────────────────────────────────────┐ 
-│  • ScarbuckToken: Value transfer primitive      │
+┌─────────────────────────────────────────────────┐
+│  ScarceToken: Value transfer primitive          │
 │  • Freebird: Anonymous ownership proofs         │
 │  • Nullifiers: Unique spend identifiers         │
 │  • Transfer packages with commitments           │
 └─────────────────────────────────────────────────┘
                       ↓
 ┌─────────────────────────────────────────────────┐
-│  • NullifierGossip: Fast propagation            │
+│  NullifierGossip: Fast propagation              │
 │  • P2P broadcast of spent nullifiers            │
 │  • Local nullifier sets per peer                │
 │  • Epidemic-style forwarding                    │
 └─────────────────────────────────────────────────┘
                       ↓
 ┌─────────────────────────────────────────────────┐
-│  • TransferValidator: Acceptance logic          │
+│  TransferValidator: Acceptance logic            │
 │  • Gossip check (fast, probabilistic)           │
 │  • Witness check (slow, deterministic)          │
 │  • Confidence scoring (tunable risk)            │
@@ -102,7 +80,7 @@ This architecture effectively digitizes the **Wörgl Experiment** (1932) and Sil
 ### Minting
 
 ```typescript
-const token = ScarbuckToken.mint(100, freebird, witness, gossip);
+const token = ScarceToken.mint(100, freebird, witness, gossip);
 ```
 
 Creates a new token with:
@@ -125,7 +103,7 @@ const pkg = await token.transfer(recipientPublicKey);
 ### Receive
 
 ```typescript
-const newToken = await ScarbuckToken.receive(
+const newToken = await ScarceToken.receive(
   pkg,
   recipientSecret,
   freebird,
@@ -159,7 +137,6 @@ const result = await validator.validateTransfer(pkg);
 **Confidence Scoring:**
 ```
 confidence = peerScore + witnessScore + timeScore
-           = (peers/100) + (depth/3) + (wait/10s)
            = (peers/10) + (depth/3) + (wait/10s)
            = up to 0.5  + up to 0.3 + up to 0.2
            = max 1.0 (perfect certainty)
@@ -257,12 +234,6 @@ const witness = new WitnessAdapter({
 // Timestamp transfer package
 const attestation = await witness.timestamp(packageHash);
 
-<<<<<<< HEAD
-// Verify attestation
-const valid = await witness.verify(attestation);
-```
-
-=======
 // Verify attestation (supports both Ed25519 and BLS12-381 signatures)
 const valid = await witness.verify(attestation);
 ```
@@ -294,14 +265,13 @@ const peers = [
 gossip.addPeer(peers[0]);
 ```
 
-<<<<<<< HEAD
-=======
 **Hybrid Architecture (WebSocket + WebRTC):**
 - Starts with WebSocket relay for initial connection and signaling
 - Automatically upgrades to WebRTC DataChannel for direct P2P (lower latency)
 - Falls back to WebSocket gracefully if WebRTC fails (NAT traversal issues)
 - TURN relay support for restrictive network environments
 - Transparent to the gossip protocol - same API for both transports
+
 ---
 
 ## Usage Example
@@ -310,7 +280,7 @@ gossip.addPeer(peers[0]);
 
 ```typescript
 import {
-  ScarbuckToken,
+  ScarceToken,
   NullifierGossip,
   TransferValidator,
   FreebirdAdapter,
@@ -355,7 +325,7 @@ const validator = new TransferValidator({
 });
 
 // Mint a token
-const token = ScarbuckToken.mint(100, freebird, witness, gossip);
+const token = ScarceToken.mint(100, freebird, witness, gossip);
 
 // Transfer to recipient
 const recipientKey = { bytes: new Uint8Array(32) }; // recipient's public key
@@ -369,7 +339,7 @@ if (result.valid) {
 
   // Receive the token
   const recipientSecret = new Uint8Array(32); // recipient's secret
-  const receivedToken = await ScarbuckToken.receive(
+  const receivedToken = await ScarceToken.receive(
     transferPkg,
     recipientSecret,
     freebird,
@@ -446,8 +416,6 @@ npm run build
 npm test
 ```
 
-<<<<<<< HEAD
-=======
 ### Running Integration Tests
 
 **Prerequisites:**
@@ -502,7 +470,6 @@ Tests gracefully degrade to fallback mode, demonstrating resilience:
 ✅ Double-Spend Detection: 100% pass (7/7 tests)
 ```
 
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
 ### Production Considerations
 
 **Gossip Network:**
@@ -541,6 +508,7 @@ Tests gracefully degrade to fallback mode, demonstrating resilience:
 ---
 
 ## Roadmap
+
 **Phase 1: Core Protocol** ✅ **COMPLETE**
 - [x] Token minting and transfer
 - [x] Nullifier gossip network

@@ -21,10 +21,6 @@ export interface ValidatorConfig {
   readonly witness: WitnessClient;
   readonly waitTime?: number; // milliseconds
   readonly minConfidence?: number; // 0-1
-<<<<<<< HEAD
-=======
-  readonly maxTokenAge?: number; // Maximum allowed age of a transfer proof
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
 }
 
 export class TransferValidator {
@@ -32,23 +28,12 @@ export class TransferValidator {
   private readonly witness: WitnessClient;
   private readonly waitTime: number;
   private readonly minConfidence: number;
-<<<<<<< HEAD
 
-=======
-  private readonly maxTokenAge: number;
-  
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
   constructor(config: ValidatorConfig) {
     this.gossip = config.gossip;
     this.witness = config.witness;
     this.waitTime = config.waitTime ?? 5000; // 5 seconds default
     this.minConfidence = config.minConfidence ?? 0.7; // 70% confidence required
-<<<<<<< HEAD
-=======
-    // Default to ~1.5 years (13,824 hours) but try your own
-    // This MUST match or be shorter than your gossip network's pruning memory
-    this.maxTokenAge = config.maxTokenAge ?? (24 * 24 * 24 * 3600 * 1000);
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
   }
 
   /**
@@ -61,32 +46,7 @@ export class TransferValidator {
    * @returns Validation result with confidence score
    */
   async validateTransfer(pkg: TransferPackage): Promise<ValidationResult> {
-<<<<<<< HEAD
     // Step 1: Fast gossip check (instant, probabilistic)
-    const gossipConfidence = await this.gossip.checkNullifier(pkg.nullifier);
-
-    if (gossipConfidence > 0) {
-      // Nullifier seen in gossip = likely double-spend
-      return {
-        valid: false,
-        confidence: 0,
-        reason: 'Double-spend detected in gossip network'
-      };
-    }
-
-    // Step 2: Witness federation check (slower, deterministic)
-=======
-  	// Step 1: Enforce Rolling Validity Window
-  	const age = Date.now() - pkg.proof.timestamp;
-    if (age > this.maxTokenAge) {
-      return {
-        valid: false,
-        confidence: 0,
-        reason: `Token expired. Proof age (${(age/3600000).toFixed(1)}h) exceeds limit.`
-      };
-    }
-    
-    // Step 2: Fast gossip check (instant, probabilistic)
     const gossipConfidence = await this.gossip.checkNullifier(pkg.nullifier);
 
     // For a legitimate transfer, the nullifier will be seen once (confidence ~0.1-0.4).
@@ -102,10 +62,8 @@ export class TransferValidator {
         reason: `Double-spend detected in gossip network (confidence: ${gossipConfidence.toFixed(2)})`
       };
     }
-    
 
-    // Step 3: Witness federation check (slower, deterministic)
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
+    // Step 2: Witness federation check (slower, deterministic)
     const witnessConfidence = await this.witness.checkNullifier(pkg.nullifier);
 
     if (witnessConfidence > 0) {
@@ -117,11 +75,7 @@ export class TransferValidator {
       };
     }
 
-<<<<<<< HEAD
     // Step 3: Verify the Witness attestation itself
-=======
-    // Step 4: Verify the Witness attestation itself
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
     const proofValid = await this.witness.verify(pkg.proof);
     if (!proofValid) {
       return {
@@ -131,21 +85,7 @@ export class TransferValidator {
       };
     }
 
-<<<<<<< HEAD
     // Step 4: Wait for gossip propagation (tunable delay)
-    if (this.waitTime > 0) {
-      await this.sleep(this.waitTime);
-
-      // Check again after waiting
-      const finalCheck = await this.gossip.checkNullifier(pkg.nullifier);
-
-      if (finalCheck > 0) {
-        return {
-          valid: false,
-          confidence: 0,
-          reason: 'Double-spend detected during propagation wait'
-=======
-    // Step 5: Wait for gossip propagation (tunable delay)
     if (this.waitTime > 0) {
       await this.sleep(this.waitTime);
 
@@ -157,27 +97,18 @@ export class TransferValidator {
           valid: false,
           confidence: 0,
           reason: `Double-spend detected during propagation wait (confidence: ${finalCheck.toFixed(2)})`
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
         };
       }
     }
 
-<<<<<<< HEAD
     // Step 5: Compute confidence score
-=======
-    // Step 6: Compute confidence score
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
     const confidence = this.computeConfidence({
       gossipPeers: this.gossip.peers.length,
       witnessDepth: this.getWitnessFederationDepth(),
       waitTime: this.waitTime
     });
 
-<<<<<<< HEAD
     // Step 6: Accept or reject based on confidence threshold
-=======
-    // Step 7: Accept or reject based on confidence threshold
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
     if (confidence < this.minConfidence) {
       return {
         valid: false,
@@ -205,14 +136,9 @@ export class TransferValidator {
    * @returns Confidence score (0-1)
    */
   computeConfidence(params: ConfidenceParams): number {
-<<<<<<< HEAD
-    // Peer score: asymptotic to 0.5 as peers approach 100
-    const peerScore = Math.min(params.gossipPeers / 100, 0.5);
-=======
     // Peer score: asymptotic to 0.5 as peers approach 10
     // This is more reasonable for smaller test networks while still working for production
     const peerScore = Math.min(params.gossipPeers / 10, 0.5);
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
 
     // Witness score: asymptotic to 0.3 as federation depth approaches 3
     const witnessScore = Math.min(params.witnessDepth / 3, 0.3);

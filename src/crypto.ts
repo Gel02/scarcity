@@ -1,9 +1,5 @@
 /**
-<<<<<<< HEAD
  * Cryptographic primitives for Scarce protocol
-=======
- * Cryptographic primitives for Scarcity protocol
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
  */
 
 import { sha256 } from '@noble/hashes/sha256';
@@ -17,10 +13,7 @@ export class Crypto {
   static randomBytes(length: number): Uint8Array {
     return randomBytes(length);
   }
-<<<<<<< HEAD
 
-=======
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
   /**
    * Hash arbitrary data with SHA-256
    */
@@ -39,49 +32,33 @@ export class Crypto {
 
     return sha256(concatBytes(...combined));
   }
-<<<<<<< HEAD
 
-=======
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
   /**
    * Convert bytes to hex string
    */
   static toHex(bytes: Uint8Array): string {
     return bytesToHex(bytes);
   }
-<<<<<<< HEAD
 
-=======
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
   /**
    * Convert hex string to bytes
    */
   static fromHex(hex: string): Uint8Array {
     return hexToBytes(hex);
   }
-<<<<<<< HEAD
 
-=======
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
   /**
    * Generate nullifier from secret, token ID, and timestamp
    * Nullifier = H(secret || tokenId || timestamp)
    */
   static generateNullifier(
     secret: Uint8Array,
-<<<<<<< HEAD
     tokenId: string,
     timestamp: number
   ): Uint8Array {
     return this.hash(secret, tokenId, timestamp);
   }
 
-=======
-    tokenId: string
-  ): Uint8Array {
-    return this.hash(secret, tokenId);
-  }
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
   /**
    * Constant-time comparison of byte arrays
    */
@@ -97,10 +74,7 @@ export class Crypto {
 
     return result === 0;
   }
-<<<<<<< HEAD
 
-=======
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
   /**
    * Generate a commitment to recipient public key
    * In production this would use Freebird's blinding
@@ -109,10 +83,7 @@ export class Crypto {
     const nonce = this.randomBytes(32);
     return this.hash(publicKey, nonce);
   }
-<<<<<<< HEAD
 
-=======
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
   /**
    * Hash transfer package for Witness timestamping
    */

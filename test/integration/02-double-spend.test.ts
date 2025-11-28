@@ -6,7 +6,7 @@
  */
 
 import {
-  ScarbuckToken,
+  ScarceToken,
   NullifierGossip,
   TransferValidator,
   FreebirdAdapter,
@@ -34,7 +34,7 @@ export async function runDoubleSpendTest(): Promise<void> {
   });
 
   const hypertoken = new HyperTokenAdapter({
-    relayUrl: 'ws://localhost:3000'
+    relayUrl: 'ws://localhost:8080'
   });
 
   try {
@@ -59,10 +59,10 @@ export async function runDoubleSpendTest(): Promise<void> {
   });
 
   // Test 1: Mint a token
-  let token: ScarbuckToken;
+  let token: ScarceToken;
 
   await runner.run('Token minting', async () => {
-    token = ScarbuckToken.mint(50, freebird, witness, gossip);
+    token = ScarceToken.mint(50, freebird, witness, gossip);
     runner.assert(token.getMetadata().spent === false, 'Token should not be spent');
   });
 

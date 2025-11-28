@@ -8,15 +8,11 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-<<<<<<< HEAD
-    "test": "node --test",
-=======
     "test": "npm run test:integration",
     "test:integration": "npm run build && node dist/test/run-integration-tests.js",
     "test:basic": "npm run build && node dist/test/integration/01-basic-transfer.test.js",
     "test:double-spend": "npm run build && node dist/test/integration/02-double-spend.test.js",
     "test:degradation": "npm run build && node dist/test/integration/03-graceful-degradation.test.js",
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
     "lint": "eslint src/"
   },
   "keywords": [
@@ -30,14 +26,6 @@
   "author": "The Carpocratian Church of Commonality and Equality",
   "license": "Apache-2.0",
   "dependencies": {
-<<<<<<< HEAD
-    "@noble/hashes": "^1.4.0",
-    "@noble/curves": "^1.4.0"
-  },
-  "devDependencies": {
-    "@types/node": "^20.11.0",
-    "typescript": "^5.3.3"
-=======
     "@noble/curves": "^1.9.7",
     "@noble/hashes": "^1.4.0",
     "ws": "^8.18.0"
@@ -45,7 +33,6 @@
   "devDependencies": {
     "@types/node": "^20.11.0",
     "@types/ws": "^8.18.1",
-    "typescript": "^5.9.3"
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
+    "typescript": "^5.3.3"
   }
 }

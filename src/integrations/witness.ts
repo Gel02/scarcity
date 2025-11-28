@@ -1,22 +1,15 @@
 /**
  * Witness integration adapter
  *
-<<<<<<< HEAD
- * Provides timestamped attestations for Scarce transfers.
-=======
  * Provides timestamped attestations for Scarcity transfers using
  * threshold signature-based timestamping without blockchain.
  *
  * Supports both Ed25519 multi-sig and BLS12-381 aggregated signatures.
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
  */
 
 import { Crypto } from '../crypto.js';
 import type { WitnessClient, Attestation } from '../types.js';
-<<<<<<< HEAD
-=======
 import { bls12_381 } from '@noble/curves/bls12-381';
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
 
 export interface WitnessAdapterConfig {
   readonly gatewayUrl: string;
@@ -26,24 +19,12 @@ export interface WitnessAdapterConfig {
 /**
  * Adapter for Witness timestamping service
  *
-<<<<<<< HEAD
- * In production, this would integrate with actual Witness gateway.
- * For now, we provide a mock implementation.
-=======
  * Connects to a Witness gateway that coordinates threshold signatures
  * from multiple independent witness nodes for tamper-proof timestamps.
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
  */
 export class WitnessAdapter implements WitnessClient {
   private readonly gatewayUrl: string;
   private readonly networkId: string;
-<<<<<<< HEAD
-  private readonly nullifierCache = new Map<string, Attestation>();
-
-  constructor(config: WitnessAdapterConfig) {
-    this.gatewayUrl = config.gatewayUrl;
-    this.networkId = config.networkId ?? 'scarce-network';
-=======
   private config: any = null;
 
   constructor(config: WitnessAdapterConfig) {
@@ -68,34 +49,11 @@ export class WitnessAdapter implements WitnessClient {
     } catch (error) {
       console.warn('[Witness] Gateway not available, using fallback mode:', error);
     }
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
   }
 
   /**
    * Timestamp a hash with Witness federation
    *
-<<<<<<< HEAD
-   * In production: Submits to Witness gateway, receives threshold signatures
-   * Mock: Creates local attestation
-   */
-  async timestamp(hash: string): Promise<Attestation> {
-    // TODO: Integrate with actual Witness REST API
-    // const response = await fetch(`${this.gatewayUrl}/v1/timestamp`, {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({ hash })
-    // });
-    // const data = await response.json();
-    // return {
-    //   hash: data.hash,
-    //   timestamp: data.timestamp,
-    //   signatures: data.signatures,
-    //   witnessIds: data.witnesses.map(w => w.id)
-    // };
-
-    // Mock implementation
-    const attestation: Attestation = {
-=======
    * Submits hash to gateway, which collects threshold signatures
    * from witness nodes and returns signed attestation.
    */
@@ -156,7 +114,6 @@ export class WitnessAdapter implements WitnessClient {
 
     // Fallback: simulated local attestation
     return {
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
       hash,
       timestamp: Date.now(),
       signatures: [
@@ -166,35 +123,11 @@ export class WitnessAdapter implements WitnessClient {
       ],
       witnessIds: ['witness-1', 'witness-2', 'witness-3']
     };
-<<<<<<< HEAD
-
-    // Cache for later verification
-    this.nullifierCache.set(hash, attestation);
-
-    return attestation;
-=======
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
   }
 
   /**
    * Verify a Witness attestation
    *
-<<<<<<< HEAD
-   * In production: Validates threshold signatures
-   * Mock: Checks local cache
-   */
-  async verify(attestation: Attestation): Promise<boolean> {
-    // TODO: Integrate with actual Witness verification
-    // const response = await fetch(`${this.gatewayUrl}/v1/verify`, {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify(attestation)
-    // });
-    // const data = await response.json();
-    // return data.valid && data.validSignatures >= data.threshold;
-
-    // Mock implementation: verify structure and signatures
-=======
    * Validates threshold signatures from witness nodes.
    * Supports both Ed25519 multi-sig and BLS12-381 aggregated signatures.
    */
@@ -243,7 +176,6 @@ export class WitnessAdapter implements WitnessClient {
     }
 
     // Fallback: basic structural validation
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
     if (!attestation.hash || !attestation.timestamp) {
       return false;
     }
@@ -266,26 +198,6 @@ export class WitnessAdapter implements WitnessClient {
   }
 
   /**
-<<<<<<< HEAD
-   * Check if nullifier has been seen by Witness network
-   *
-   * In production: Queries Witness network's merkle tree
-   * Mock: Checks local cache
-   */
-  async checkNullifier(nullifier: Uint8Array): Promise<number> {
-    // TODO: Integrate with actual Witness query API
-    // const hash = Crypto.toHex(nullifier);
-    // const response = await fetch(`${this.gatewayUrl}/v1/timestamp/${hash}`);
-    // if (response.status === 404) {
-    //   return 0; // Not seen
-    // }
-    // const data = await response.json();
-    // return data.validSignatures >= data.threshold ? 1.0 : 0.5;
-
-    // Mock implementation: check local cache
-    const hash = Crypto.toHex(nullifier);
-    return this.nullifierCache.has(hash) ? 1.0 : 0;
-=======
    * Verify BLS aggregated signature locally
    *
    * This requires the network config to have witness public keys.
@@ -466,24 +378,12 @@ export class WitnessAdapter implements WitnessClient {
 
     // Fallback: cannot check without gateway
     return 0;
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
   }
 
   /**
    * Retrieve attestation for a specific hash
    */
   async getAttestation(hash: string): Promise<Attestation | null> {
-<<<<<<< HEAD
-    // TODO: Integrate with actual Witness query API
-    // const response = await fetch(`${this.gatewayUrl}/v1/timestamp/${hash}`);
-    // if (response.status === 404) {
-    //   return null;
-    // }
-    // return await response.json();
-
-    // Mock implementation
-    return this.nullifierCache.get(hash) ?? null;
-=======
     await this.init();
 
     if (this.config) {
@@ -514,22 +414,12 @@ export class WitnessAdapter implements WitnessClient {
     }
 
     return null;
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
   }
 
   /**
    * Get Witness network configuration
    */
   async getConfig() {
-<<<<<<< HEAD
-    // TODO: Integrate with actual Witness config endpoint
-    // const response = await fetch(`${this.gatewayUrl}/v1/config`);
-    // return await response.json();
-
-    // Mock implementation
-    return {
-      networkId: this.networkId,
-=======
     await this.init();
 
     // Return cached config if available
@@ -540,7 +430,6 @@ export class WitnessAdapter implements WitnessClient {
     // Fallback config
     return {
       network_id: this.networkId,
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
       threshold: 2,
       witnesses: [
         { id: 'witness-1', endpoint: 'http://localhost:3001' },

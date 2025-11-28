@@ -1,71 +1,15 @@
 /**
  * HyperToken integration adapter
  *
-<<<<<<< HEAD
- * Provides P2P network connectivity for gossip protocol.
- */
-
-=======
  * Provides P2P network connectivity for gossip protocol using HyperToken's
  * HybridPeerManager for WebSocket + WebRTC P2P networking with automatic upgrade.
  */
 
 import { HybridPeerManager } from '../vendor/hypertoken/HybridPeerManager.js';
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
 import type { PeerConnection, GossipMessage } from '../types.js';
 
 export interface HyperTokenAdapterConfig {
   readonly relayUrl?: string;
-<<<<<<< HEAD
-  readonly peerId?: string;
-}
-
-/**
- * Mock peer connection for testing
- *
- * In production, this would use HyperToken's PeerConnection
- * or WebSocket-based P2P networking.
- */
-export class MockPeerConnection implements PeerConnection {
-  readonly id: string;
-  private connected: boolean = true;
-  private messageHandler?: (data: GossipMessage) => void;
-
-  constructor(id: string) {
-    this.id = id;
-  }
-
-  async send(data: GossipMessage): Promise<void> {
-    if (!this.connected) {
-      throw new Error(`Peer ${this.id} is not connected`);
-    }
-
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 10));
-
-    // In production, this would send over WebSocket/WebRTC
-    // For now, just log
-    console.log(`[MockPeer ${this.id}] Sent:`, data.type);
-  }
-
-  isConnected(): boolean {
-    return this.connected;
-  }
-
-  disconnect(): void {
-    this.connected = false;
-  }
-
-  reconnect(): void {
-    this.connected = true;
-  }
-
-  onMessage(handler: (data: GossipMessage) => void): void {
-    this.messageHandler = handler;
-  }
-
-  simulateReceive(data: GossipMessage): void {
-=======
 }
 
 /**
@@ -111,7 +55,6 @@ class HyperTokenPeerWrapper implements PeerConnection {
    * Internal: Called by HyperTokenAdapter when a message arrives from this peer
    */
   _handleIncomingMessage(data: GossipMessage): void {
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
     if (this.messageHandler) {
       this.messageHandler(data);
     }
@@ -121,19 +64,6 @@ class HyperTokenPeerWrapper implements PeerConnection {
 /**
  * Adapter for HyperToken P2P networking
  *
-<<<<<<< HEAD
- * In production, this would integrate with HyperToken's
- * Engine and PeerConnection classes for distributed state sync.
- */
-export class HyperTokenAdapter {
-  private readonly relayUrl: string;
-  private readonly peerId: string;
-  private readonly peers = new Map<string, MockPeerConnection>();
-
-  constructor(config: HyperTokenAdapterConfig = {}) {
-    this.relayUrl = config.relayUrl ?? 'ws://localhost:8080';
-    this.peerId = config.peerId ?? this.generatePeerId();
-=======
  * Provides hybrid WebSocket + WebRTC P2P connectivity through a relay server.
  * Automatically upgrades connections to WebRTC for lower latency when possible,
  * with graceful fallback to WebSocket.
@@ -156,40 +86,10 @@ export class HyperTokenAdapter {
       this.readyResolve = resolve;
       this.readyReject = reject;
     });
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
   }
 
   /**
    * Connect to relay server
-<<<<<<< HEAD
-   *
-   * In production: Uses HyperToken Engine
-   * Mock: Creates local peer simulation
-   */
-  async connect(): Promise<void> {
-    // TODO: Integrate with actual HyperToken
-    // const engine = new Engine();
-    // await engine.connect(this.relayUrl);
-
-    console.log(`[HyperToken] Connected to relay: ${this.relayUrl}`);
-  }
-
-  /**
-   * Create peer connection
-   */
-  createPeer(peerId?: string): PeerConnection {
-    const id = peerId ?? this.generatePeerId();
-    const peer = new MockPeerConnection(id);
-    this.peers.set(id, peer);
-    return peer;
-  }
-
-  /**
-   * Get all connected peers
-   */
-  getPeers(): PeerConnection[] {
-    return Array.from(this.peers.values());
-=======
    */
   async connect(): Promise<void> {
     this.htManager = new HybridPeerManager({
@@ -326,22 +226,16 @@ export class HyperTokenAdapter {
     if (!this.htManager) return [];
     const wsConnection = this.htManager.getWebSocketConnection();
     return wsConnection.peers ? Array.from(wsConnection.peers) : [];
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
   }
 
   /**
    * Disconnect from network
    */
   disconnect(): void {
-<<<<<<< HEAD
-    for (const peer of this.peers.values()) {
-      peer.disconnect();
-=======
     if (this.htManager) {
       this.htManager.disconnect();
       this.peerWrappers.clear();
       this.isReady = false;
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
     }
   }
 

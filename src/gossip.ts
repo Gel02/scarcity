@@ -17,10 +17,6 @@ export interface GossipConfig {
   readonly witness: WitnessClient;
   readonly maxNullifiers?: number;
   readonly pruneInterval?: number;
-<<<<<<< HEAD
-=======
-  readonly maxNullifierAge?: number; // Must match Validator's maxTokenAge
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
 }
 
 export class NullifierGossip {
@@ -31,24 +27,12 @@ export class NullifierGossip {
   private readonly pruneInterval: number;
   private receiveHandler?: (data: GossipMessage) => Promise<void>;
   private pruneTimer?: NodeJS.Timeout;
-<<<<<<< HEAD
 
-=======
-  private readonly maxNullifierAge: number;
-  
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
   constructor(config: GossipConfig) {
     this.witness = config.witness;
     this.maxNullifiers = config.maxNullifiers ?? 100_000;
     this.pruneInterval = config.pruneInterval ?? 3600_000; // 1 hour
-<<<<<<< HEAD
 
-=======
-	// Default to ~1.5 years (13,824 hours) to match the Validator's logic.
-    // Ideally, this should be slightly LONGER than the Validator's maxTokenAge
-    // to account for clock skew and propagation delays.
-    this.maxNullifierAge = config.maxNullifierAge ?? (24 * 24 * 24 * 3600 * 1000);
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
     // Start pruning old nullifiers periodically
     this.startPruning();
   }
@@ -100,12 +84,6 @@ export class NullifierGossip {
       return 0; // Never seen
     }
 
-<<<<<<< HEAD
-    // Compute confidence based on:
-    // - How many peers reported it
-    // - How long ago it was first seen
-    // - How many total peers we have
-=======
     // For double-spend detection, only peer count matters.
     // Age is irrelevant - a legitimate transfer gets older over time,
     // but that doesn't make it a double-spend.
@@ -117,21 +95,13 @@ export class NullifierGossip {
     // relative to total peers. This helps distinguish:
     // - Low confidence (1 peer): Legitimate transfer
     // - High confidence (many peers): Likely double-spend
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
 
     const peerConfidence = Math.min(
       record.peerCount / Math.max(this.peerConnections.length, 1),
       1.0
     );
 
-<<<<<<< HEAD
-    const ageMs = Date.now() - record.firstSeen;
-    const ageConfidence = Math.min(ageMs / 10_000, 1.0); // Max confidence after 10s
-
-    return Math.max(peerConfidence, ageConfidence);
-=======
     return peerConfidence;
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
   }
 
   /**
@@ -244,35 +214,17 @@ export class NullifierGossip {
   private startPruning(): void {
     this.pruneTimer = setInterval(() => {
       const now = Date.now();
-<<<<<<< HEAD
       const cutoff = now - 24 * 60 * 60 * 1000; // 24 hours
 
       // Remove nullifiers older than cutoff
       for (const [key, record] of this.seenNullifiers.entries()) {
-=======
-      const cutoff = now - this.maxNullifierAge;
-
-      // Remove nullifiers older than cutoff
-      for (const [key, record] of this.seenNullifiers.entries()) {
-        // We rely on 'firstSeen' as the approximation of the token's timestamp
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
         if (record.firstSeen < cutoff) {
           this.seenNullifiers.delete(key);
         }
       }
 
-<<<<<<< HEAD
       // If still over limit, remove oldest entries
       if (this.seenNullifiers.size > this.maxNullifiers) {
-=======
-      // Safety Valve: If still over maxNullifiers limit (e.g. DDoS), 
-      // we must enforce the hard cap to prevent crashing.
-      // NOTE: This creates a theoretical double-spend risk if the network is flooded,
-      // but preventing a crash is the priority.
-      if (this.seenNullifiers.size > this.maxNullifiers) {
-        console.warn(`[Gossip] Nullifier set size (${this.seenNullifiers.size}) exceeded limit. Forcing prune.`);
-        
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
         const entries = Array.from(this.seenNullifiers.entries())
           .sort((a, b) => a[1].firstSeen - b[1].firstSeen);
 
@@ -282,11 +234,7 @@ export class NullifierGossip {
         }
       }
     }, this.pruneInterval);
-<<<<<<< HEAD
   }
-=======
-	}
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
 
   /**
    * Cleanup resources
