@@ -8,12 +8,14 @@
  */
 
 import { Crypto } from '../crypto.js';
-import type { WitnessClient, Attestation } from '../types.js';
+import type { WitnessClient, Attestation, TorConfig } from '../types.js';
 import { bls12_381 } from '@noble/curves/bls12-381';
+import { TorProxy } from '../tor.js';
 
 export interface WitnessAdapterConfig {
   readonly gatewayUrl: string;
   readonly networkId?: string;
+  readonly tor?: TorConfig;
 }
 
 /**
@@ -25,11 +27,32 @@ export interface WitnessAdapterConfig {
 export class WitnessAdapter implements WitnessClient {
   private readonly gatewayUrl: string;
   private readonly networkId: string;
+  private readonly tor: TorProxy | null;
   private config: any = null;
 
   constructor(config: WitnessAdapterConfig) {
     this.gatewayUrl = config.gatewayUrl;
     this.networkId = config.networkId ?? 'scarcity-network';
+    this.tor = config.tor ? new TorProxy(config.tor) : null;
+
+    // Log if Tor is enabled for .onion addresses
+    if (TorProxy.isOnionUrl(this.gatewayUrl)) {
+      if (this.tor) {
+        console.log('[Witness] Tor enabled for .onion address');
+      } else {
+        console.warn('[Witness] .onion URL detected but Tor not configured');
+      }
+    }
+  }
+
+  /**
+   * Fetch with Tor support for .onion URLs
+   */
+  private async fetch(url: string, options: RequestInit = {}): Promise<Response> {
+    if (this.tor) {
+      return this.tor.fetch(url, options);
+    }
+    return fetch(url, options);
   }
 
   /**
@@ -39,7 +62,7 @@ export class WitnessAdapter implements WitnessClient {
     if (this.config) return;
 
     try {
-      const response = await fetch(`${this.gatewayUrl}/v1/config`);
+      const response = await this.fetch(`${this.gatewayUrl}/v1/config`);
       if (response.ok) {
         this.config = await response.json();
         console.log('[Witness] Connected to network:', this.config.network_id || 'unknown');
@@ -63,7 +86,7 @@ export class WitnessAdapter implements WitnessClient {
     // Attempt real timestamping if gateway is available
     if (this.config) {
       try {
-        const response = await fetch(`${this.gatewayUrl}/v1/timestamp`, {
+        const response = await this.fetch(`${this.gatewayUrl}/v1/timestamp`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ hash })
@@ -152,7 +175,7 @@ export class WitnessAdapter implements WitnessClient {
           }))
         };
 
-        const response = await fetch(`${this.gatewayUrl}/v1/verify`, {
+        const response = await this.fetch(`${this.gatewayUrl}/v1/verify`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ attestation: witnessAttestation })
@@ -357,7 +380,7 @@ export class WitnessAdapter implements WitnessClient {
     // Attempt real lookup if gateway is available
     if (this.config) {
       try {
-        const response = await fetch(`${this.gatewayUrl}/v1/timestamp/${hash}`);
+        const response = await this.fetch(`${this.gatewayUrl}/v1/timestamp/${hash}`);
 
         if (response.status === 404) {
           return 0; // Not seen
@@ -388,7 +411,7 @@ export class WitnessAdapter implements WitnessClient {
 
     if (this.config) {
       try {
-        const response = await fetch(`${this.gatewayUrl}/v1/timestamp/${hash}`);
+        const response = await this.fetch(`${this.gatewayUrl}/v1/timestamp/${hash}`);
 
         if (response.status === 404) {
           return null;

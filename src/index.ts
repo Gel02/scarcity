@@ -16,6 +16,8 @@ export { FreebirdAdapter } from './integrations/freebird.js';
 export { WitnessAdapter } from './integrations/witness.js';
 export { HyperTokenAdapter } from './integrations/hypertoken.js';
 
+export { TorProxy, configureTor, getTorProxy, torFetch } from './tor.js';
+
 export type {
   PublicKey,
   PrivateKey,
@@ -28,7 +30,8 @@ export type {
   ConfidenceParams,
   FreebirdClient,
   WitnessClient,
-  GossipNetwork
+  GossipNetwork,
+  TorConfig
 } from './types.js';
 
 export type { ScarceTokenConfig } from './token.js';
