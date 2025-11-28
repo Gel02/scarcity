@@ -4,7 +4,7 @@
  * A gossip-based cryptocurrency with double-spend prevention
  * through distributed nullifier sets and threshold timestamping.
  *
- * @module scarce
+ * @module scarcity
  */
 
 export { ScarbuckToken } from './token.js';
