@@ -270,12 +270,21 @@ export async function runSpamMitigationTest(): Promise<void> {
     });
 
     const hash = Crypto.hashString('test-nullifier');
+    console.log(`  → Input hash: ${hash}`);
 
     // This will solve PoW before attempting to timestamp
     const attestation = await witness.timestamp(hash);
+    console.log(`  → Returned hash: ${attestation.hash}`);
+    console.log(`  → Hash type: ${typeof attestation.hash}`);
+    console.log(`  → Hashes equal: ${attestation.hash === hash}`);
 
-    runner.assert(attestation.hash === hash, 'Attestation should include the hash');
+    // Verify attestation structure (in fallback mode, hash should be preserved)
+    runner.assert(attestation.hash != null, 'Attestation should have a hash');
+    runner.assert(typeof attestation.hash === 'string', 'Hash should be a string');
+    runner.assert(attestation.hash === hash, `Attestation hash should match (expected: ${hash}, got: ${attestation.hash})`);
     runner.assert(attestation.timestamp > 0, 'Attestation should have timestamp');
+    runner.assert(Array.isArray(attestation.signatures), 'Attestation should have signatures');
+    runner.assert(attestation.signatures.length >= 2, 'Attestation should have at least 2 signatures');
     console.log('  → Witness with PoW completed successfully');
   });
 
