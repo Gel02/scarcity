@@ -406,9 +406,9 @@ export async function runPhase3CLITests(): Promise<any> {
   let bridgePackage: any;
 
   await runner.run('CLI: Bridge token to target federation', async () => {
-    // Setup target federation
+    // Setup target federation (using same gateway but different network ID for testing)
     const targetWitness = new WitnessAdapter({
-      gatewayUrl: 'http://localhost:8090',
+      gatewayUrl: 'http://localhost:8080',
       networkId: 'test-network-2'
     });
 
