@@ -22,15 +22,12 @@ Traditional cryptocurrencies require one of three sacrifices:
 
 Scarcity refuses all three. It's designed from first principles with these constraints:
 
-<<<<<<< HEAD
 - **Privacy-Preserving**: Like Freebird, sender/receiver unlinkable
 - **Serverless**: Like HyperToken, P2P without infrastructure
 - **Provable**: Like Witness, cryptographically verifiable
-=======
 - **Privacy-Preserving**: With Freebird, sender/receiver unlinkable
 - **Serverless**: With HyperToken, P2P without catastrophic infrastructure
 - **Provable**: With Witness, cryptographically verifiable
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
 - **Zero-Cost**: No gas fees, no mining, no staking
 - **Anonymous**: No wallet addresses, no on-chain history
 
@@ -54,8 +51,6 @@ Instead of a global ledger, Scarcity uses:
 2. **Witness Timestamping** - Ground truth for disputes
 3. **Probabilistic Acceptance** - You don't need 100% certainty instantly
 
-<<<<<<< HEAD
-=======
 ## Economic Model: Lazy Demurrage
 
 Scarcity implements a novel economic primitive we call **Lazy Demurrage**—a system where currency behaves less like immutable gold and more like metabolic energy.
@@ -75,30 +70,25 @@ This model effectively eliminates the "Lost Coin" problem. If keys are lost, the
 ### 3. Gesellian "Rusting Money"
 This architecture effectively digitizes the **Wörgl Experiment** (1932) and Silvio Gesell's concept of *Freigeld* ("Free Money"). Just as the citizens of Wörgl had to affix a stamp to their banknotes monthly to keep them valid, Scarcity users must cryptographically "refresh" their funds by moving them to a new secret. This structural disincentive to hoarding forces circulation and economic activity.
 
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
 ### Three-Layer Architecture
 
 ```
-┌─────────────────────────────────────────────────┐
-<<<<<<< HEAD
-│  ScarceToken: Value transfer primitive          │
-=======
-│  ScarbuckToken: Value transfer primitive          │
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
+┌─────────────────────────────────────────────────┐ 
+│  • ScarbuckToken: Value transfer primitive      │
 │  • Freebird: Anonymous ownership proofs         │
 │  • Nullifiers: Unique spend identifiers         │
 │  • Transfer packages with commitments           │
 └─────────────────────────────────────────────────┘
                       ↓
 ┌─────────────────────────────────────────────────┐
-│  NullifierGossip: Fast propagation              │
+│  • NullifierGossip: Fast propagation            │
 │  • P2P broadcast of spent nullifiers            │
 │  • Local nullifier sets per peer                │
 │  • Epidemic-style forwarding                    │
 └─────────────────────────────────────────────────┘
                       ↓
 ┌─────────────────────────────────────────────────┐
-│  TransferValidator: Acceptance logic            │
+│  • TransferValidator: Acceptance logic          │
 │  • Gossip check (fast, probabilistic)           │
 │  • Witness check (slow, deterministic)          │
 │  • Confidence scoring (tunable risk)            │
@@ -112,11 +102,7 @@ This architecture effectively digitizes the **Wörgl Experiment** (1932) and Sil
 ### Minting
 
 ```typescript
-<<<<<<< HEAD
-const token = ScarceToken.mint(100, freebird, witness, gossip);
-=======
 const token = ScarbuckToken.mint(100, freebird, witness, gossip);
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
 ```
 
 Creates a new token with:
@@ -139,11 +125,7 @@ const pkg = await token.transfer(recipientPublicKey);
 ### Receive
 
 ```typescript
-<<<<<<< HEAD
-const newToken = await ScarceToken.receive(
-=======
 const newToken = await ScarbuckToken.receive(
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
   pkg,
   recipientSecret,
   freebird,
@@ -177,11 +159,8 @@ const result = await validator.validateTransfer(pkg);
 **Confidence Scoring:**
 ```
 confidence = peerScore + witnessScore + timeScore
-<<<<<<< HEAD
            = (peers/100) + (depth/3) + (wait/10s)
-=======
            = (peers/10) + (depth/3) + (wait/10s)
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
            = up to 0.5  + up to 0.3 + up to 0.2
            = max 1.0 (perfect certainty)
 ```
@@ -295,7 +274,6 @@ const valid = await witness.verify(attestation);
 - Automatic fallback to gateway verification
 - Compatible with Witness federation modes
 
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
 ### HyperToken: P2P Networking
 
 ```typescript
@@ -306,10 +284,7 @@ const hypertoken = new HyperTokenAdapter({
 await hypertoken.connect();
 
 // Create peer connections for gossip
-<<<<<<< HEAD
-=======
 // Connections automatically upgrade from WebSocket to WebRTC for lower latency
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
 const peers = [
   hypertoken.createPeer(),
   hypertoken.createPeer(),
@@ -327,8 +302,6 @@ gossip.addPeer(peers[0]);
 - Falls back to WebSocket gracefully if WebRTC fails (NAT traversal issues)
 - TURN relay support for restrictive network environments
 - Transparent to the gossip protocol - same API for both transports
-
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
 ---
 
 ## Usage Example
@@ -337,11 +310,7 @@ gossip.addPeer(peers[0]);
 
 ```typescript
 import {
-<<<<<<< HEAD
-  ScarceToken,
-=======
   ScarbuckToken,
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
   NullifierGossip,
   TransferValidator,
   FreebirdAdapter,
@@ -386,11 +355,7 @@ const validator = new TransferValidator({
 });
 
 // Mint a token
-<<<<<<< HEAD
-const token = ScarceToken.mint(100, freebird, witness, gossip);
-=======
 const token = ScarbuckToken.mint(100, freebird, witness, gossip);
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
 
 // Transfer to recipient
 const recipientKey = { bytes: new Uint8Array(32) }; // recipient's public key
@@ -404,11 +369,7 @@ if (result.valid) {
 
   // Receive the token
   const recipientSecret = new Uint8Array(32); // recipient's secret
-<<<<<<< HEAD
-  const receivedToken = await ScarceToken.receive(
-=======
   const receivedToken = await ScarbuckToken.receive(
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
     transferPkg,
     recipientSecret,
     freebird,
@@ -580,18 +541,6 @@ Tests gracefully degrade to fallback mode, demonstrating resilience:
 ---
 
 ## Roadmap
-
-<<<<<<< HEAD
-**Phase 1: Core Protocol** ✅
-- [x] Token minting and transfer
-- [x] Nullifier gossip network
-- [x] Probabilistic validation
-- [x] Freebird/Witness/HyperToken integration
-
-**Phase 2: Hardening**
-- [ ] BLS signature aggregation (Witness)
-- [ ] WebRTC peer connections (HyperToken)
-=======
 **Phase 1: Core Protocol** ✅ **COMPLETE**
 - [x] Token minting and transfer
 - [x] Nullifier gossip network
@@ -604,7 +553,6 @@ Tests gracefully degrade to fallback mode, demonstrating resilience:
 **Phase 2: Hardening** 🔨 **IN PROGRESS**
 - [x] BLS signature aggregation (Witness) ✅ **COMPLETE**
 - [x] WebRTC peer connections (HyperToken) ✅ **COMPLETE**
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
 - [ ] VOPRF production integration (Freebird)
 - [ ] Tor onion service support
 
@@ -655,11 +603,7 @@ On receive(nullifier, proof):
 ### Confidence Scoring
 
 ```typescript
-<<<<<<< HEAD
-peerScore = min(peers / 100, 0.5)      // Up to 50%
-=======
 peerScore = min(peers / 10, 0.5)       // Up to 50%
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
 witnessScore = min(depth / 3, 0.3)     // Up to 30%
 timeScore = min(waitMs / 10_000, 0.2)  // Up to 20%
 
@@ -694,11 +638,7 @@ A: No. Scarcity is zero-cost by design. No incentives, no fees.
 A: Application-specific. Could be fiat-backed, work-based, time-based, etc.
 
 **Q: Is this production-ready?**
-<<<<<<< HEAD
-A: No. This is a research prototype. Freebird/Witness/HyperToken integration is mocked.
-=======
 A: Phase 1 is complete with working integrations. However, this is still a research prototype requiring Phase 2 hardening (BLS aggregation, WebRTC, production VOPRF) before production use.
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
 
 ---
 
@@ -714,8 +654,4 @@ Apache License 2.0
 - **[HyperToken](https://github.com/flammafex/hypertoken)**: Distributed state synchronization
 - **[Witness](https://github.com/flammafex/witness)**: Threshold signature timestamping
 
-<<<<<<< HEAD
-**Scarcity: You fucked with the best.**
-=======
 **Scarcity: You're fucking with the best.**
->>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
