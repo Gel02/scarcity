@@ -101,4 +101,73 @@ export class Crypto {
     const hash = this.hash(input);
     return this.toHex(hash);
   }
+
+  /**
+   * Solve a proof-of-work challenge by finding a nonce
+   * such that Hash(challenge + nonce) has `difficulty` leading zero bits
+   *
+   * @param challenge - The challenge string
+   * @param difficulty - Number of leading zero bits required (default: 16 = ~65k attempts)
+   * @returns The nonce that solves the puzzle
+   */
+  static solveProofOfWork(challenge: string, difficulty: number = 16): number {
+    let nonce = 0;
+    const targetPrefix = '0'.repeat(Math.floor(difficulty / 4)); // Hex digits
+    const targetBits = difficulty % 4;
+
+    while (true) {
+      const hash = this.hashString(challenge + nonce);
+
+      // Check if hash meets difficulty requirement
+      if (hash.startsWith(targetPrefix)) {
+        // For partial hex digit, check the bits
+        if (targetBits === 0) {
+          return nonce;
+        }
+
+        const nextChar = hash[targetPrefix.length];
+        const nextValue = parseInt(nextChar, 16);
+        const mask = (1 << (4 - targetBits)) - 1;
+
+        if ((nextValue & ~mask) === 0) {
+          return nonce;
+        }
+      }
+
+      nonce++;
+
+      // Safety check to prevent infinite loops (should never happen)
+      if (nonce > 10_000_000) {
+        throw new Error('Proof-of-work failed: exceeded max attempts');
+      }
+    }
+  }
+
+  /**
+   * Verify a proof-of-work solution
+   *
+   * @param challenge - The challenge string
+   * @param nonce - The nonce to verify
+   * @param difficulty - Number of leading zero bits required
+   * @returns true if the nonce is a valid solution
+   */
+  static verifyProofOfWork(challenge: string, nonce: number, difficulty: number = 16): boolean {
+    const hash = this.hashString(challenge + nonce);
+    const targetPrefix = '0'.repeat(Math.floor(difficulty / 4));
+    const targetBits = difficulty % 4;
+
+    if (!hash.startsWith(targetPrefix)) {
+      return false;
+    }
+
+    if (targetBits === 0) {
+      return true;
+    }
+
+    const nextChar = hash[targetPrefix.length];
+    const nextValue = parseInt(nextChar, 16);
+    const mask = (1 << (4 - targetBits)) - 1;
+
+    return (nextValue & ~mask) === 0;
+  }
 }
