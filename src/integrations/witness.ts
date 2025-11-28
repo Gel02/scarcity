@@ -13,10 +13,12 @@ import { bls12_381 } from '@noble/curves/bls12-381';
 import { TorProxy } from '../tor.js';
 
 export interface WitnessAdapterConfig {
-  readonly gatewayUrl: string;
+  readonly gatewayUrl?: string; // Single gateway (backward compatibility)
+  readonly gatewayUrls?: string[]; // Multiple gateways for quorum
   readonly networkId?: string;
   readonly tor?: TorConfig;
   readonly powDifficulty?: number; // Proof-of-work difficulty in bits (default: 0 = disabled)
+  readonly quorumThreshold?: number; // Minimum agreements required (default: 2 for 2-of-3)
 }
 
 /**
@@ -26,24 +28,40 @@ export interface WitnessAdapterConfig {
  * from multiple independent witness nodes for tamper-proof timestamps.
  */
 export class WitnessAdapter implements WitnessClient {
-  private readonly gatewayUrl: string;
+  private readonly gatewayUrls: string[];
   private readonly networkId: string;
   private readonly tor: TorProxy | null;
   private readonly powDifficulty: number;
+  private readonly quorumThreshold: number;
   private config: any = null;
 
   constructor(config: WitnessAdapterConfig) {
-    this.gatewayUrl = config.gatewayUrl;
+    // Support both single gateway (backward compatibility) and multiple gateways
+    if (config.gatewayUrls && config.gatewayUrls.length > 0) {
+      this.gatewayUrls = [...config.gatewayUrls];
+    } else if (config.gatewayUrl) {
+      this.gatewayUrls = [config.gatewayUrl];
+    } else {
+      throw new Error('WitnessAdapter requires either gatewayUrl or gatewayUrls');
+    }
+
     this.networkId = config.networkId ?? 'scarcity-network';
     this.tor = config.tor ? new TorProxy(config.tor) : null;
     this.powDifficulty = config.powDifficulty ?? 0; // Default: disabled
 
+    // Default quorum: 2-of-3 (or majority if different number of gateways)
+    this.quorumThreshold = config.quorumThreshold ?? Math.ceil(this.gatewayUrls.length / 2);
+
+    console.log(`[Witness] Configured with ${this.gatewayUrls.length} gateway(s), quorum threshold: ${this.quorumThreshold}`);
+
     // Log if Tor is enabled for .onion addresses
-    if (TorProxy.isOnionUrl(this.gatewayUrl)) {
-      if (this.tor) {
-        console.log('[Witness] Tor enabled for .onion address');
-      } else {
-        console.warn('[Witness] .onion URL detected but Tor not configured');
+    for (const url of this.gatewayUrls) {
+      if (TorProxy.isOnionUrl(url)) {
+        if (this.tor) {
+          console.log(`[Witness] Tor enabled for .onion address: ${url}`);
+        } else {
+          console.warn(`[Witness] .onion URL detected but Tor not configured: ${url}`);
+        }
       }
     }
   }
@@ -60,20 +78,33 @@ export class WitnessAdapter implements WitnessClient {
 
   /**
    * Initialize by fetching network configuration
+   * Tries all gateways and succeeds if at least one responds
    */
   private async init(): Promise<void> {
     if (this.config) return;
 
-    try {
-      const response = await this.fetch(`${this.gatewayUrl}/v1/config`);
-      if (response.ok) {
-        this.config = await response.json();
-        console.log('[Witness] Connected to network:', this.config.network_id || 'unknown');
-      } else {
-        console.warn('[Witness] Could not fetch config, using fallback mode');
+    // Try all gateways in parallel
+    const configPromises = this.gatewayUrls.map(async (url) => {
+      try {
+        const response = await this.fetch(`${url}/v1/config`);
+        if (response.ok) {
+          return await response.json();
+        }
+        return null;
+      } catch (error) {
+        console.warn(`[Witness] Gateway ${url} not available:`, error);
+        return null;
       }
-    } catch (error) {
-      console.warn('[Witness] Gateway not available, using fallback mode:', error);
+    });
+
+    const configs = await Promise.all(configPromises);
+    const validConfig = configs.find(c => c !== null);
+
+    if (validConfig) {
+      this.config = validConfig;
+      console.log('[Witness] Connected to network:', this.config.network_id || 'unknown');
+    } else {
+      console.warn('[Witness] No gateways available, using fallback mode');
     }
   }
 
@@ -85,6 +116,8 @@ export class WitnessAdapter implements WitnessClient {
    *
    * LAYER 2: PROOF-OF-WORK - If powDifficulty > 0, solves a computational
    * puzzle before submitting, imposing a "computation cost" on the requester.
+   *
+   * Multi-gateway: Tries all gateways and returns first successful response
    */
   async timestamp(hash: string): Promise<Attestation> {
     await this.init();
@@ -101,74 +134,87 @@ export class WitnessAdapter implements WitnessClient {
 
     // Attempt real timestamping if gateway is available
     if (this.config) {
-      try {
-        const requestBody: any = { hash };
-        if (nonce !== undefined) {
-          requestBody.nonce = nonce;
-          requestBody.difficulty = this.powDifficulty;
-        }
-
-        const response = await this.fetch(`${this.gatewayUrl}/v1/timestamp`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestBody)
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-
-          // Transform Witness API response to Scarcity's Attestation format
-          // The response structure is:
-          // { attestation: { attestation: {...}, signatures: MultiSig | Aggregated } }
-
-          const signaturesData = data.attestation?.signatures;
-          let signatures: string[] = [];
-          let witnessIds: string[] = [];
-
-          if (signaturesData) {
-            // Check if it's MultiSig variant (has 'signatures' array)
-            if (Array.isArray(signaturesData.signatures)) {
-              signatures = signaturesData.signatures.map((sig: any) =>
-                typeof sig.signature === 'string' ? sig.signature : JSON.stringify(sig.signature)
-              );
-              witnessIds = signaturesData.signatures.map((sig: any) => sig.witness_id);
-            }
-            // Check if it's Aggregated variant (has 'signature' and 'signers')
-            else if (signaturesData.signature && Array.isArray(signaturesData.signers)) {
-              signatures = [
-                typeof signaturesData.signature === 'string'
-                  ? signaturesData.signature
-                  : JSON.stringify(signaturesData.signature)
-              ];
-              witnessIds = signaturesData.signers;
-            }
-          }
-
-          // Ensure hash is always a hex string (gateway may return Uint8Array)
-          let hashString = hash; // Default to input hash
-          const gatewayHash = data.attestation?.attestation?.hash;
-          if (gatewayHash) {
-            if (typeof gatewayHash === 'string') {
-              hashString = gatewayHash;
-            } else if (gatewayHash instanceof Uint8Array || Array.isArray(gatewayHash)) {
-              // Convert Uint8Array or array to hex string
-              hashString = Crypto.toHex(new Uint8Array(gatewayHash));
-            }
-          }
-
-          return {
-            hash: hashString,
-            timestamp: data.attestation?.attestation?.timestamp
-              ? data.attestation.attestation.timestamp * 1000  // Convert seconds to milliseconds
-              : Date.now(),
-            signatures,
-            witnessIds,
-            raw: data.attestation  // Store original SignedAttestation for verification
-          };
-        }
-      } catch (error) {
-        console.warn('[Witness] Timestamping failed, using fallback:', error);
+      // Try all gateways in parallel, use first successful response
+      const requestBody: any = { hash };
+      if (nonce !== undefined) {
+        requestBody.nonce = nonce;
+        requestBody.difficulty = this.powDifficulty;
       }
+
+      const timestampPromises = this.gatewayUrls.map(async (gatewayUrl) => {
+        try {
+          const response = await this.fetch(`${gatewayUrl}/v1/timestamp`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody)
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+
+            // Transform Witness API response to Scarcity's Attestation format
+            const signaturesData = data.attestation?.signatures;
+            let signatures: string[] = [];
+            let witnessIds: string[] = [];
+
+            if (signaturesData) {
+              // Check if it's MultiSig variant (has 'signatures' array)
+              if (Array.isArray(signaturesData.signatures)) {
+                signatures = signaturesData.signatures.map((sig: any) =>
+                  typeof sig.signature === 'string' ? sig.signature : JSON.stringify(sig.signature)
+                );
+                witnessIds = signaturesData.signatures.map((sig: any) => sig.witness_id);
+              }
+              // Check if it's Aggregated variant (has 'signature' and 'signers')
+              else if (signaturesData.signature && Array.isArray(signaturesData.signers)) {
+                signatures = [
+                  typeof signaturesData.signature === 'string'
+                    ? signaturesData.signature
+                    : JSON.stringify(signaturesData.signature)
+                ];
+                witnessIds = signaturesData.signers;
+              }
+            }
+
+            // Ensure hash is always a hex string (gateway may return Uint8Array)
+            let hashString = hash; // Default to input hash
+            const gatewayHash = data.attestation?.attestation?.hash;
+            if (gatewayHash) {
+              if (typeof gatewayHash === 'string') {
+                hashString = gatewayHash;
+              } else if (gatewayHash instanceof Uint8Array || Array.isArray(gatewayHash)) {
+                // Convert Uint8Array or array to hex string
+                hashString = Crypto.toHex(new Uint8Array(gatewayHash));
+              }
+            }
+
+            return {
+              hash: hashString,
+              timestamp: data.attestation?.attestation?.timestamp
+                ? data.attestation.attestation.timestamp * 1000  // Convert seconds to milliseconds
+                : Date.now(),
+              signatures,
+              witnessIds,
+              raw: data.attestation  // Store original SignedAttestation for verification
+            };
+          }
+          return null;
+        } catch (error) {
+          console.warn(`[Witness] Timestamping failed for gateway ${gatewayUrl}:`, error);
+          return null;
+        }
+      });
+
+      // Wait for first successful response
+      const results = await Promise.all(timestampPromises);
+      const successfulResult = results.find(r => r !== null);
+
+      if (successfulResult) {
+        console.log('[Witness] Successfully timestamped via gateway');
+        return successfulResult;
+      }
+
+      console.warn('[Witness] All gateways failed for timestamping, using fallback');
     }
 
     // Fallback: simulated local attestation
@@ -407,6 +453,14 @@ export class WitnessAdapter implements WitnessClient {
    * Check if nullifier has been seen by Witness network
    *
    * Queries for existing timestamp to detect double-spends.
+   *
+   * ANTI-CENSORSHIP: Uses quorum voting across multiple gateways.
+   * A malicious gateway cannot hide a nullifier - we need quorum agreement.
+   *
+   * Returns:
+   * - 1.0: Quorum agrees nullifier exists (double-spend detected)
+   * - 0.0: Quorum agrees nullifier doesn't exist (safe to accept)
+   * - 0.5: Split vote or insufficient responses (treat as suspicious)
    */
   async checkNullifier(nullifier: Uint8Array): Promise<number> {
     await this.init();
@@ -415,23 +469,60 @@ export class WitnessAdapter implements WitnessClient {
 
     // Attempt real lookup if gateway is available
     if (this.config) {
-      try {
-        const response = await this.fetch(`${this.gatewayUrl}/v1/timestamp/${hash}`);
+      // Query all gateways in parallel
+      const checkPromises = this.gatewayUrls.map(async (gatewayUrl) => {
+        try {
+          const response = await this.fetch(`${gatewayUrl}/v1/timestamp/${hash}`);
 
-        if (response.status === 404) {
-          return 0; // Not seen
-        }
+          if (response.status === 404) {
+            return { seen: false, gateway: gatewayUrl };
+          }
 
-        if (response.ok) {
-          const data = await response.json();
-          // Return confidence based on signature threshold
-          const sigCount = data.attestation?.signatures?.length || 0;
-          const threshold = this.config.threshold || 2;
-          return sigCount >= threshold ? 1.0 : 0.5;
+          if (response.ok) {
+            const data = await response.json();
+            // Check if we have valid attestation with threshold signatures
+            const sigCount = data.attestation?.signatures?.length || 0;
+            const threshold = this.config.threshold || 2;
+            return {
+              seen: sigCount >= threshold,
+              gateway: gatewayUrl
+            };
+          }
+
+          return null; // Gateway error
+        } catch (error) {
+          console.warn(`[Witness] Gateway ${gatewayUrl} failed for nullifier check:`, error);
+          return null; // Network error
         }
-      } catch (error) {
-        // Network error - cannot determine, return low confidence
+      });
+
+      const results = await Promise.all(checkPromises);
+      const validResults = results.filter(r => r !== null);
+
+      if (validResults.length === 0) {
+        // All gateways failed - cannot determine, return low confidence
+        console.warn('[Witness] All gateways failed, cannot verify nullifier');
         return 0;
+      }
+
+      // Count votes
+      const seenCount = validResults.filter(r => r.seen).length;
+      const notSeenCount = validResults.filter(r => !r.seen).length;
+
+      console.log(`[Witness] Nullifier check: ${seenCount}/${validResults.length} gateways report seen (quorum: ${this.quorumThreshold})`);
+
+      // Quorum logic
+      if (seenCount >= this.quorumThreshold) {
+        // Quorum agrees: nullifier has been seen (DOUBLE-SPEND!)
+        return 1.0;
+      } else if (notSeenCount >= this.quorumThreshold) {
+        // Quorum agrees: nullifier has NOT been seen (SAFE)
+        return 0.0;
+      } else {
+        // Split vote or insufficient responses - suspicious!
+        // This could indicate a censorship attack
+        console.warn('[Witness] Split vote on nullifier check - possible censorship attack');
+        return 0.5;
       }
     }
 
@@ -441,48 +532,62 @@ export class WitnessAdapter implements WitnessClient {
 
   /**
    * Retrieve attestation for a specific hash
+   *
+   * Multi-gateway: Tries all gateways and returns first valid attestation
    */
   async getAttestation(hash: string): Promise<Attestation | null> {
     await this.init();
 
     if (this.config) {
-      try {
-        const response = await this.fetch(`${this.gatewayUrl}/v1/timestamp/${hash}`);
+      // Try all gateways in parallel
+      const attestationPromises = this.gatewayUrls.map(async (gatewayUrl) => {
+        try {
+          const response = await this.fetch(`${gatewayUrl}/v1/timestamp/${hash}`);
 
-        if (response.status === 404) {
-          return null;
-        }
-
-        if (response.ok) {
-          const data = await response.json();
-
-          // Ensure hash is always a hex string (gateway may return Uint8Array)
-          let hashString = hash; // Default to input hash
-          const gatewayHash = data.attestation?.attestation?.hash;
-          if (gatewayHash) {
-            if (typeof gatewayHash === 'string') {
-              hashString = gatewayHash;
-            } else if (gatewayHash instanceof Uint8Array || Array.isArray(gatewayHash)) {
-              // Convert Uint8Array or array to hex string
-              hashString = Crypto.toHex(new Uint8Array(gatewayHash));
-            }
+          if (response.status === 404) {
+            return null;
           }
 
-          return {
-            hash: hashString,
-            timestamp: data.attestation?.attestation?.timestamp
-              ? data.attestation.attestation.timestamp * 1000  // Convert seconds to milliseconds
-              : Date.now(),
-            signatures: data.attestation?.signatures?.map((sig: any) =>
-              typeof sig.signature === 'string' ? sig.signature : JSON.stringify(sig.signature)
-            ) || [],
-            witnessIds: data.attestation?.signatures?.map((sig: any) =>
-              sig.witness_id
-            ) || []
-          };
+          if (response.ok) {
+            const data = await response.json();
+
+            // Ensure hash is always a hex string (gateway may return Uint8Array)
+            let hashString = hash; // Default to input hash
+            const gatewayHash = data.attestation?.attestation?.hash;
+            if (gatewayHash) {
+              if (typeof gatewayHash === 'string') {
+                hashString = gatewayHash;
+              } else if (gatewayHash instanceof Uint8Array || Array.isArray(gatewayHash)) {
+                // Convert Uint8Array or array to hex string
+                hashString = Crypto.toHex(new Uint8Array(gatewayHash));
+              }
+            }
+
+            return {
+              hash: hashString,
+              timestamp: data.attestation?.attestation?.timestamp
+                ? data.attestation.attestation.timestamp * 1000  // Convert seconds to milliseconds
+                : Date.now(),
+              signatures: data.attestation?.signatures?.map((sig: any) =>
+                typeof sig.signature === 'string' ? sig.signature : JSON.stringify(sig.signature)
+              ) || [],
+              witnessIds: data.attestation?.signatures?.map((sig: any) =>
+                sig.witness_id
+              ) || []
+            };
+          }
+          return null;
+        } catch (error) {
+          console.warn(`[Witness] Failed to retrieve attestation from ${gatewayUrl}:`, error);
+          return null;
         }
-      } catch (error) {
-        console.warn('[Witness] Failed to retrieve attestation:', error);
+      });
+
+      const results = await Promise.all(attestationPromises);
+      const validAttestation = results.find(a => a !== null);
+
+      if (validAttestation) {
+        return validAttestation;
       }
     }
 

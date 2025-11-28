@@ -1266,6 +1266,88 @@ confidence = peerScore + witnessScore + timeScore  // Max: 1.0
 
 ---
 
+## Security
+
+Scarcity implements **defense-in-depth** security across multiple layers:
+
+### Availability Protection (DoS Mitigation)
+- **Peer Reputation Scoring**: Automatic disconnection of malicious peers
+- **Leaky Bucket Rate Limiting**: 10 msg/sec per peer prevents flooding
+- **Proof-of-Work Puzzles**: Optional computational cost for spam resistance
+- **Timestamp Validation**: Early rejection of invalid nullifiers
+
+### Integrity Protection (Phase 1 Hardening)
+- **Multi-Gateway Quorum**: Query 2-of-3 gateways to prevent censorship
+- **Outbound Peer Preference**: Weight trusted outbound peers 3x higher
+- **IP Subnet Diversity**: Detect and warn about Sybil attacks from same network
+
+### Configuration Examples
+
+**High-Security Setup:**
+```typescript
+// Multi-gateway Witness with quorum
+const witness = new WitnessAdapter({
+  gatewayUrls: [
+    'https://witness1.example.com',
+    'https://witness2.example.com',
+    'https://witness3.example.com'
+  ],
+  quorumThreshold: 2,  // 2-of-3 agreement required
+  powDifficulty: 16    // ~50-200ms computational cost
+});
+
+// Gossip with peer diversity
+const gossip = new NullifierGossip({
+  witness,
+  peerScoreThreshold: -50,
+  maxTimestampFuture: 5,
+  maxNullifierAge: 86400000  // 24 hours
+});
+
+// Add diverse outbound peers
+const outboundPeer = {
+  id: 'trusted-peer-1',
+  direction: 'outbound',  // Connection YOU initiated
+  remoteAddress: '203.0.113.1',
+  send: async (data) => { /* ... */ },
+  isConnected: () => true
+};
+
+gossip.addPeer(outboundPeer);
+
+// Validator with high confidence
+const validator = new TransferValidator({
+  gossip,
+  witness,
+  waitTime: 5000,
+  minConfidence: 0.8  // 80% confidence required
+});
+```
+
+**Monitor Security:**
+```typescript
+// Check subnet diversity
+const subnetStats = gossip.getSubnetStats();
+console.log('Subnet diversity:', subnetStats.size);
+
+// Check peer direction mix
+const peers = gossip.peers;
+const outbound = peers.filter(p => p.direction === 'outbound').length;
+console.log(`Outbound: ${outbound}, Total: ${peers.length}`);
+
+// Check peer reputation
+const scores = gossip.getAllPeerScores();
+for (const [peerId, score] of scores) {
+  if (score.score < -20) {
+    console.warn(`⚠️ Low-reputation peer: ${peerId}`);
+  }
+}
+```
+
+For complete security details, threat models, and attack cost analysis, see **[SECURITY.md](SECURITY.md)**.
+
+---
+
 ## FAQ
 
 **Q: Is this a blockchain?**

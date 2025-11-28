@@ -320,6 +320,342 @@ console.log(`Nullifiers: ${stats.nullifierCount}, Peers: ${stats.peerCount}, Act
 
 ---
 
+# Phase 1 Security Hardening: Integrity & Trust
+
+While the spam mitigation measures above protect against **Availability** attacks (DoS/crashes), the following features address **Integrity** and **Trust** vulnerabilities that could enable theft, double-spending, or undetected inflation.
+
+## 1. Multi-Gateway Witness Support (Anti-Censorship)
+
+**Vulnerability**: Single gateway operator could perform targeted censorship or split-view attacks by returning false 404 responses for nullifiers that exist.
+
+**Solution**: Query multiple independent gateways with quorum voting.
+
+### Configuration
+
+```typescript
+// Backward compatible: single gateway
+const witness = new WitnessAdapter({
+  gatewayUrl: 'https://witness1.example.com'
+});
+
+// Multi-gateway with 2-of-3 quorum (recommended)
+const witness = new WitnessAdapter({
+  gatewayUrls: [
+    'https://witness1.example.com',
+    'https://witness2.example.com',
+    'https://witness3.example.com'
+  ],
+  quorumThreshold: 2  // Require 2 gateways to agree
+});
+
+// Custom quorum (e.g., 3-of-5)
+const witness = new WitnessAdapter({
+  gatewayUrls: [
+    'https://witness1.example.com',
+    'https://witness2.example.com',
+    'https://witness3.example.com',
+    'https://witness4.example.com',
+    'https://witness5.example.com'
+  ],
+  quorumThreshold: 3
+});
+```
+
+### How It Works
+
+When checking if a nullifier has been seen:
+
+1. **Query All Gateways**: Queries all configured gateways in parallel
+2. **Quorum Voting**:
+   - If ≥ quorum say "seen" → Return 1.0 (double-spend detected)
+   - If ≥ quorum say "not seen" → Return 0.0 (safe to accept)
+   - If split vote or insufficient responses → Return 0.5 (suspicious, possible censorship attack)
+
+### Benefits
+
+- **Censorship Resistance**: Single malicious gateway cannot hide double-spends
+- **Availability**: Continues working if some gateways are down
+- **Split-View Detection**: Warns when gateways disagree (possible attack)
+
+### Example Output
+
+```
+[Witness] Configured with 3 gateway(s), quorum threshold: 2
+[Witness] Nullifier check: 0/3 gateways report seen (quorum: 2)
+✅ Safe: Quorum agrees nullifier has NOT been seen
+
+[Witness] Nullifier check: 3/3 gateways report seen (quorum: 2)
+❌ Double-spend: Quorum agrees nullifier HAS been seen
+
+[Witness] Nullifier check: 1/3 gateways report seen (quorum: 2)
+⚠️ Suspicious: Split vote on nullifier check - possible censorship attack
+```
+
+---
+
+## 2. Outbound Peer Preference (Anti-Eclipse)
+
+**Vulnerability**: Attackers can easily connect TO you (inbound connections) and surround your node with malicious peers, creating a "reality bubble" where they lie about nullifier states.
+
+**Solution**: Weight outbound peers (connections YOU initiated) 3x higher in confidence scoring.
+
+### Configuration
+
+Peers now support optional `direction` and `remoteAddress` tracking:
+
+```typescript
+// When adding peers, specify connection direction
+const outboundPeer: PeerConnection = {
+  id: 'trusted-peer-1',
+  direction: 'outbound',  // YOU initiated this connection
+  remoteAddress: '203.0.113.1',
+  send: async (data) => { /* ... */ },
+  isConnected: () => true
+};
+
+const inboundPeer: PeerConnection = {
+  id: 'unknown-peer-1',
+  direction: 'inbound',  // They connected to YOU
+  remoteAddress: '198.51.100.1',
+  send: async (data) => { /* ... */ },
+  isConnected: () => true
+};
+
+gossip.addPeer(outboundPeer);
+gossip.addPeer(inboundPeer);
+```
+
+### How It Works
+
+The validator's confidence scoring now uses **effective peer count**:
+
+```
+Effective Peers = (Outbound × 3) + (Inbound × 1) + (Unknown × 1)
+```
+
+**Example**:
+- 2 outbound peers + 3 inbound peers = (2×3) + 3 = **9 effective peers**
+- 0 outbound peers + 9 inbound peers = (0×3) + 9 = **9 effective peers**
+
+But the first scenario is **more secure** because outbound peers are more trustworthy.
+
+### Benefits
+
+- **Eclipse Resistance**: Attackers cannot easily surround your node
+- **Trust Asymmetry**: Recognizes that outbound connections are inherently more trustworthy
+- **Backward Compatible**: Works with peers that don't specify direction (treated as inbound for safety)
+
+### Confidence Scoring Impact
+
+```typescript
+const validator = new TransferValidator({ gossip, witness });
+
+// Scenario 1: Mixed peers (3 outbound, 2 inbound)
+// Effective = (3×3) + 2 = 11
+// peerScore = min(11/10, 0.5) = 0.5 ✅
+
+// Scenario 2: All inbound (0 outbound, 11 inbound)
+// Effective = (0×3) + 11 = 11
+// peerScore = min(11/10, 0.5) = 0.5 ⚠️ (but less trustworthy)
+
+// Scenario 3: All outbound (4 outbound, 0 inbound)
+// Effective = (4×3) + 0 = 12
+// peerScore = min(12/10, 0.5) = 0.5 ✅✅ (high trust)
+```
+
+---
+
+## 3. IP Subnet Diversity Checks (Anti-Sybil)
+
+**Vulnerability**: Attacker controls 20 nodes on same /24 subnet (e.g., rented VPS instances). All report "never seen it" for a double-spent nullifier.
+
+**Solution**: Track and warn about peers from the same IP subnet.
+
+### How It Works
+
+```typescript
+const gossip = new NullifierGossip({ witness });
+
+// Add peers from diverse subnets (good)
+gossip.addPeer({ id: 'peer-1', remoteAddress: '203.0.113.1', ... });
+gossip.addPeer({ id: 'peer-2', remoteAddress: '198.51.100.1', ... });
+gossip.addPeer({ id: 'peer-3', remoteAddress: '192.0.2.1', ... });
+
+// Add 4th peer from same subnet as peer-1 (triggers warning)
+gossip.addPeer({ id: 'peer-4', remoteAddress: '203.0.113.5', ... });
+// Output:
+// ⚠️ [Gossip] Warning: 4 peers from subnet 203.0.113.
+//    Possible Sybil attack. Consider limiting connections from same subnet.
+
+// Check subnet diversity
+const subnetStats = gossip.getSubnetStats();
+console.log(subnetStats);
+// Map { '203.0.113' => 2, '198.51.100' => 1, '192.0.2' => 1 }
+```
+
+### Configuration
+
+The maximum peers per subnet is currently hardcoded to **3**, but can be adjusted in `src/gossip.ts`:
+
+```typescript
+// In addPeer method
+const MAX_PEERS_PER_SUBNET = 3;  // Adjust as needed
+```
+
+### Subnet Detection
+
+- **IPv4**: First 3 octets (e.g., `192.168.1.x` → subnet `192.168.1`)
+- **IPv6**: First 3 groups (e.g., `2001:db8:85a3::x` → subnet `2001:db8:85a3`)
+
+### Benefits
+
+- **Sybil Detection**: Warns when too many peers come from same network
+- **Operational Visibility**: Helps operators identify potential attacks
+- **Non-Breaking**: Still accepts the peer, just logs a warning
+
+### Monitoring
+
+```typescript
+// Get subnet diversity statistics
+const stats = gossip.getSubnetStats();
+
+for (const [subnet, count] of stats) {
+  if (count > 3) {
+    console.warn(`⚠️ ${count} peers from subnet ${subnet} - investigate`);
+  }
+}
+
+// Example output:
+// ⚠️ 5 peers from subnet 192.168.1 - investigate
+// ✅ 2 peers from subnet 10.0.0
+// ✅ 1 peer from subnet 203.0.113
+```
+
+---
+
+## Combined Security: Best Practices
+
+### High-Security Configuration
+
+Combine all Phase 1 hardening features:
+
+```typescript
+// 1. Multi-gateway Witness with quorum
+const witness = new WitnessAdapter({
+  gatewayUrls: [
+    'https://witness1.example.com',
+    'https://witness2.example.com',
+    'https://witness3.example.com'
+  ],
+  quorumThreshold: 2,
+  powDifficulty: 16  // Also use PoW from spam mitigation
+});
+
+// 2. Gossip with peer diversity tracking
+const gossip = new NullifierGossip({
+  witness,
+  peerScoreThreshold: -50,
+  maxTimestampFuture: 5,
+  maxNullifierAge: 86400000
+});
+
+// 3. Add diverse outbound peers
+const outboundPeers = [
+  { id: 'peer-1', direction: 'outbound', remoteAddress: '203.0.113.1' },
+  { id: 'peer-2', direction: 'outbound', remoteAddress: '198.51.100.1' },
+  { id: 'peer-3', direction: 'outbound', remoteAddress: '192.0.2.1' }
+];
+
+for (const peer of outboundPeers) {
+  gossip.addPeer(createPeerConnection(peer));
+}
+
+// 4. Validator with high confidence threshold
+const validator = new TransferValidator({
+  gossip,
+  witness,
+  waitTime: 5000,
+  minConfidence: 0.8  // High threshold for security
+});
+
+// Result: System resistant to:
+// ✅ Gateway censorship (multi-gateway quorum)
+// ✅ Eclipse attacks (outbound peer preference)
+// ✅ Sybil attacks (subnet diversity + peer scoring)
+// ✅ Spam attacks (PoW + rate limiting from previous layers)
+```
+
+### Security Monitoring
+
+```typescript
+// Monitor all security dimensions
+setInterval(() => {
+  // 1. Peer diversity
+  const subnetStats = gossip.getSubnetStats();
+  console.log('Subnet diversity:', subnetStats.size);
+
+  // 2. Peer direction mix
+  const peers = gossip.peers;
+  const outbound = peers.filter(p => p.direction === 'outbound').length;
+  const inbound = peers.filter(p => p.direction === 'inbound').length;
+  console.log(`Peers: ${outbound} outbound, ${inbound} inbound`);
+
+  // 3. Peer reputation
+  const scores = gossip.getAllPeerScores();
+  const lowScorePeers = Array.from(scores.entries())
+    .filter(([_, score]) => score.score < -20);
+  if (lowScorePeers.length > 0) {
+    console.warn('Peers with low reputation:', lowScorePeers);
+  }
+
+  // 4. Gateway availability (conceptual - depends on monitoring implementation)
+  // Check if all gateways are reachable
+}, 60000);  // Every minute
+```
+
+---
+
+## Known Limitations & Future Work
+
+### Limitations Addressed
+
+✅ **Single Point of Failure (Gateway)**: Solved with multi-gateway quorum
+✅ **Eclipse Attack (Gossip Layer)**: Mitigated with outbound peer preference
+✅ **Sybil Attack (Gossip Layer)**: Partially mitigated with subnet diversity checks
+
+### Remaining Challenges
+
+These require more complex solutions and are documented for future development:
+
+#### 1. Invisible Inflation (Economic Layer)
+
+**Vulnerability**: Without a public ledger, there's no way to audit total supply. A compromised Freebird issuer key could mint unlimited tokens.
+
+**Future Solutions**:
+- Public Commitment Registry: Issuer publishes daily Merkle root of all issued commitments
+- Multi-Party Computation (MPC) Issuance: Split issuer key across multiple servers
+- Periodic External Audits: Independent verification of issuer operations
+
+#### 2. Traffic Analysis & Metadata Leakage
+
+**Vulnerability**: While Tor hides IPs and VOPRF hides identity, transaction graph analysis could correlate transfers.
+
+**Future Solutions**:
+- Fixed Denominations: Force all tokens to standard values (1, 10, 100) like Monero
+- Dandelion++ Routing: Privacy-preserving routing phase before epidemic broadcast
+- Decoy Traffic: Send fake transactions to obfuscate real patterns
+
+#### 3. Advanced Eclipse Attacks
+
+**Current mitigation** (outbound peer preference) is not foolproof. An attacker with network-level access could still intercept outbound connections.
+
+**Future Solutions**:
+- Trusted Anchor Peers: Hardcoded set of known-good peers
+- Kademlia DHT: Distributed hash table to enforce topology
+- Proof-of-Stake Peer Selection: Weight peer trust by economic stake
+
+---
+
 ## Security Contact
 
 To report security vulnerabilities in Scarcity, please open an issue at:

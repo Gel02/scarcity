@@ -104,6 +104,8 @@ export interface BridgePackage {
 
 export interface PeerConnection {
   readonly id: string;
+  readonly direction?: 'inbound' | 'outbound'; // Connection direction for trust scoring
+  readonly remoteAddress?: string; // Remote IP for diversity checks
   send(data: GossipMessage): Promise<void>;
   isConnected(): boolean;
 }

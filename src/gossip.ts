@@ -243,8 +243,29 @@ export class NullifierGossip {
 
   /**
    * Add peer connection
+   *
+   * ANTI-SYBIL: Checks IP subnet diversity to prevent attacks from single network
    */
   addPeer(peer: PeerConnection): void {
+    // Check subnet diversity if we have the remote address
+    if (peer.remoteAddress) {
+      const subnet = this.getSubnet(peer.remoteAddress);
+      const sameSubnetPeers = this.peerConnections.filter(p =>
+        p.remoteAddress && this.getSubnet(p.remoteAddress) === subnet
+      );
+
+      // Warn if too many peers from same subnet (potential Sybil attack)
+      const MAX_PEERS_PER_SUBNET = 3;
+      if (sameSubnetPeers.length >= MAX_PEERS_PER_SUBNET) {
+        console.warn(
+          `[Gossip] Warning: ${sameSubnetPeers.length + 1} peers from subnet ${subnet}. ` +
+          `Possible Sybil attack. Consider limiting connections from same subnet.`
+        );
+        // Still add the peer, but log the warning
+        // In production, you might want to reject or deprioritize
+      }
+    }
+
     this.peerConnections.push(peer);
   }
 
@@ -403,6 +424,50 @@ export class NullifierGossip {
    */
   getAllPeerScores(): Map<string, PeerScore> {
     return new Map(this.peerScores);
+  }
+
+  /**
+   * Extract /24 subnet from IP address
+   *
+   * Used for detecting Sybil attacks from the same network.
+   * IPv4: Returns first 3 octets (e.g., "192.168.1" from "192.168.1.100")
+   * IPv6: Returns first 48 bits (simplified implementation)
+   */
+  private getSubnet(ip: string): string {
+    // IPv4
+    if (ip.includes('.')) {
+      const octets = ip.split('.');
+      if (octets.length >= 3) {
+        return octets.slice(0, 3).join('.');
+      }
+    }
+
+    // IPv6 (simplified - use first 4 groups for /48)
+    if (ip.includes(':')) {
+      const groups = ip.split(':');
+      if (groups.length >= 3) {
+        return groups.slice(0, 3).join(':');
+      }
+    }
+
+    // Unknown format, return as-is
+    return ip;
+  }
+
+  /**
+   * Get subnet diversity statistics
+   */
+  getSubnetStats(): Map<string, number> {
+    const subnetCounts = new Map<string, number>();
+
+    for (const peer of this.peerConnections) {
+      if (peer.remoteAddress) {
+        const subnet = this.getSubnet(peer.remoteAddress);
+        subnetCounts.set(subnet, (subnetCounts.get(subnet) || 0) + 1);
+      }
+    }
+
+    return subnetCounts;
   }
 
   /**

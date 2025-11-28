@@ -12,6 +12,7 @@ import { runGracefulDegradationTest } from './integration/03-graceful-degradatio
 import { runPhase3Tests } from './integration/04-phase3-features.test.js';
 import { runPhase3CLITests } from './integration/05-phase3-cli.test.js';
 import { runSpamMitigationTest } from './integration/06-spam-mitigation.test.js';
+import { runSecurityHardeningTest } from './integration/07-security-hardening.test.js';
 
 interface TestSuite {
   name: string;
@@ -49,6 +50,11 @@ const testSuites: TestSuite[] = [
     name: 'Spam Mitigation (Security)',
     run: runSpamMitigationTest,
     requiresServices: false // Tests security features
+  },
+  {
+    name: 'Security Hardening (Phase 1)',
+    run: runSecurityHardeningTest,
+    requiresServices: false // Tests multi-gateway, peer diversity, and subnet checks
   }
 ];
 

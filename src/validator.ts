@@ -145,6 +145,7 @@ export class TransferValidator {
    *
    * Factors:
    * - More gossip peers = higher confidence (up to 50%)
+   *   - OUTBOUND peers weighted 3x higher (Eclipse attack mitigation)
    * - Deeper Witness federation = higher confidence (up to 30%)
    * - Longer wait time = higher confidence (up to 20%)
    *
@@ -152,9 +153,19 @@ export class TransferValidator {
    * @returns Confidence score (0-1)
    */
   computeConfidence(params: ConfidenceParams): number {
-    // Peer score: asymptotic to 0.5 as peers approach 10
-    // This is more reasonable for smaller test networks while still working for production
-    const peerScore = Math.min(params.gossipPeers / 10, 0.5);
+    // ANTI-ECLIPSE: Weight outbound peers 3x higher than inbound
+    // Rationale: Attackers can connect TO you (inbound), but can't force you
+    // to connect TO them (outbound). Outbound peers are inherently more trustworthy.
+    const outboundPeers = this.gossip.peers.filter(p => p.direction === 'outbound').length;
+    const inboundPeers = this.gossip.peers.filter(p => p.direction === 'inbound').length;
+    const unknownPeers = this.gossip.peers.filter(p => !p.direction).length;
+
+    // Effective peers: outbound * 3 + inbound * 1 + unknown * 1
+    // Unknown direction treated as inbound for safety
+    const effectivePeers = (outboundPeers * 3) + inboundPeers + unknownPeers;
+
+    // Peer score: asymptotic to 0.5 as effective peers approach 10
+    const peerScore = Math.min(effectivePeers / 10, 0.5);
 
     // Witness score: asymptotic to 0.3 as federation depth approaches 3
     const witnessScore = Math.min(params.witnessDepth / 3, 0.3);
