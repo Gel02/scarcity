@@ -86,17 +86,20 @@ export async function runSpamMitigationTest(): Promise<void> {
       timestamp: Date.now()
     };
 
-    // First message should be accepted
+    // First message should be accepted (peer gets +1)
     await gossip.onReceive(message, peerId);
 
-    // Second identical message should penalize
+    // Second identical message should penalize (peer gets -1, total = 0)
+    await gossip.onReceive(message, peerId);
+
+    // Third duplicate should bring score negative (peer gets -1, total = -1)
     await gossip.onReceive(message, peerId);
 
     const peerStats = gossip.getPeerStats(peerId);
     runner.assert(peerStats !== null, 'Peer stats should exist');
     if (peerStats) {
-      runner.assert(peerStats.duplicates > 0, 'Duplicate count should increase');
-      runner.assert(peerStats.score < 0, 'Peer should be penalized for duplicate');
+      runner.assert(peerStats.duplicates >= 2, 'Duplicate count should be at least 2');
+      runner.assert(peerStats.score < 0, 'Peer should be penalized for duplicates');
     }
   });
 
@@ -122,8 +125,8 @@ export async function runSpamMitigationTest(): Promise<void> {
 
     const peerId = 'bad-peer';
 
-    // Send multiple invalid messages to trigger disconnect
-    for (let i = 0; i < 5; i++) {
+    // Send 2 invalid messages (-10 each = -20, below threshold of -10)
+    for (let i = 0; i < 2; i++) {
       const invalidMessage: GossipMessage = {
         type: 'nullifier',
         nullifier: Crypto.randomBytes(32),
@@ -139,9 +142,14 @@ export async function runSpamMitigationTest(): Promise<void> {
       await gossip.onReceive(invalidMessage, peerId);
     }
 
-    // Peer should be disconnected
+    // Peer should be disconnected and removed after 2 invalid messages
     const peerStats = gossip.getPeerStats(peerId);
     runner.assert(peerStats === null, 'Peer should be disconnected and removed');
+
+    // Verify peer was removed from connections
+    const peers = gossip.peers;
+    const peerExists = peers.some(p => p.id === peerId);
+    runner.assert(!peerExists, 'Peer should be removed from connections');
   });
 
   // Layer 2: Timestamp Validation
