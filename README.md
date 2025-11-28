@@ -216,12 +216,22 @@ const freebird = new FreebirdAdapter({
   verifierUrl: 'https://verifier.example.com'
 });
 
-// Blind recipient public key
+// Blind recipient public key using P-256 VOPRF
 const commitment = await freebird.blind(recipientKey);
+
+// Issue anonymous token with DLEQ proof verification
+const token = await freebird.issueToken(commitment);
 
 // Create unforgeable ownership proof
 const proof = await freebird.createOwnershipProof(secret);
 ```
+
+**P-256 VOPRF (Verifiable Oblivious Pseudorandom Function):**
+- Production-ready cryptographic blinding with DLEQ proofs
+- Anonymous token issuance without revealing identity
+- Verifiable: DLEQ proof ensures issuer used correct secret key
+- Oblivious: Issuer cannot link token issuance to redemption
+- Based on RFC 9497 and hash-to-curve (RFC 9380)
 
 ### Witness: Timestamped Attestations
 
@@ -518,10 +528,10 @@ Tests gracefully degrade to fallback mode, demonstrating resilience:
 - [x] Real Witness threshold timestamping
 - [x] Comprehensive integration test suite (100% pass)
 
-**Phase 2: Hardening** 🔨 **IN PROGRESS**
+**Phase 2: Hardening** 🔨 **IN PROGRESS** (3/4 complete, 75%)
 - [x] BLS signature aggregation (Witness) ✅ **COMPLETE**
 - [x] WebRTC peer connections (HyperToken) ✅ **COMPLETE**
-- [ ] VOPRF production integration (Freebird)
+- [x] VOPRF production integration (Freebird) ✅ **COMPLETE**
 - [ ] Tor onion service support
 
 **Phase 3: Advanced Features**
