@@ -268,7 +268,7 @@ export async function runPhase3CLITests(): Promise<any> {
 
   // Test 4: HTLC Creation with Hash Lock
   let htlcPackage: any;
-  let htlcPreimage: string;
+  let htlcPreimage: Uint8Array;
 
   await runner.run('CLI: Create hash-locked HTLC', async () => {
     const bobTokens = tokenStorage.listTokens({ wallet: 'bob', spent: false });
@@ -284,8 +284,8 @@ export async function runPhase3CLITests(): Promise<any> {
     });
 
     // Generate preimage and hash
-    htlcPreimage = 'my-secret-preimage';
-    const hashLock = Crypto.hashString(htlcPreimage);
+    htlcPreimage = Crypto.randomBytes(32); // Use random bytes as preimage
+    const hashLock = Crypto.hashString(Crypto.toHex(htlcPreimage));
 
     const condition: HTLCCondition = {
       type: 'hash',
@@ -305,14 +305,14 @@ export async function runPhase3CLITests(): Promise<any> {
   // Test 5: HTLC Claim with Preimage
   await runner.run('CLI: Claim HTLC with preimage', async () => {
     // Verify preimage
-    const computedHash = Crypto.hashString(htlcPreimage);
+    const computedHash = Crypto.hashString(Crypto.toHex(htlcPreimage));
     runner.assertEquals(computedHash, htlcPackage.condition.hashlock, 'Preimage should match hash');
 
     // Claim HTLC
     const claimedToken = await ScarbuckToken.receiveHTLC(
       htlcPackage,
       charlieSecret,
-      Crypto.fromHex(htlcPreimage),
+      htlcPreimage,
       freebird,
       witness,
       gossip
@@ -352,8 +352,8 @@ export async function runPhase3CLITests(): Promise<any> {
       gossip
     });
 
-    // Create time lock that expires in 2 seconds
-    const timeLock = Math.floor(Date.now() / 1000) + 2;
+    // Create time lock that expires in 2 seconds (use milliseconds)
+    const timeLock = Date.now() + 2000;
 
     const condition: HTLCCondition = {
       type: 'time',
@@ -375,7 +375,7 @@ export async function runPhase3CLITests(): Promise<any> {
     console.log('   Waiting for time lock to expire...');
     await sleep(2500);
 
-    const currentTime = Math.floor(Date.now() / 1000);
+    const currentTime = Date.now();
     runner.assertGreaterThan(currentTime, timeLockedHTLC.condition.timelock, 'Time lock should be expired');
 
     // Refund HTLC
