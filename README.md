@@ -257,7 +257,7 @@ const proof = await freebird.createOwnershipProof(secret);
 ```typescript
 const witness = new WitnessAdapter({
   gatewayUrl: 'https://witness.example.com',
-  networkId: 'scarce-mainnet'
+  networkId: 'scarcity-mainnet'
 });
 
 // Timestamp transfer package
