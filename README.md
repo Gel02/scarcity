@@ -197,14 +197,15 @@ confidence = peerScore + witnessScore + timeScore
 
 **Protected Against:**
 - Double-spending (via nullifier sets + Witness)
-- Forgery (via Freebird's unforgeable tokens)
+- Forgery (via Freebird's unforgeable VOPRF tokens)
 - Replay attacks (nullifiers are single-use)
 - Network partitions (gossip + eventual consistency)
+- Sybil attacks on token issuance (via Freebird's pluggable Sybil resistance: invitation system, PoW, rate limiting, WebAuthn)
 
 **Not Protected Against:**
-- Token theft (secure your secrets!)
-- Sybil attacks on gossip network (use Tor)
-- Quantum adversaries (ECDLP-based)
+- Token theft (secure your secrets! Use TLS for token transmission)
+- Network-level correlation attacks (timing analysis by network observers - use Tor/mixnets)
+- Quantum adversaries (ECDLP-based cryptography)
 - Legal seizure (cash-like bearer instrument)
 
 ### Trust Assumptions
@@ -220,8 +221,11 @@ confidence = peerScore + witnessScore + timeScore
 - Cross-network anchoring for hardening
 
 **Freebird:**
-- Issuer and verifier must be separate (timing attacks)
+- Issuer and verifier must be separate (timing attack mitigation)
 - Discrete log problem hardness (P-256)
+- TLS required for token transmission (prevents bearer token theft)
+- Sybil resistance configured at deployment (invitation/PoW/rate-limit/WebAuthn/combined)
+- Rate limiting without user tracking (via anonymous token consumption + nullifier sets)
 
 ---
 
@@ -251,6 +255,14 @@ const proof = await freebird.createOwnershipProof(secret);
 - Verifiable: DLEQ proof ensures issuer used correct secret key
 - Oblivious: Issuer cannot link token issuance to redemption
 - Based on RFC 9497 and hash-to-curve (RFC 9380)
+
+**Sybil Resistance Mechanisms:**
+- **Invitation System**: Cryptographically signed invites with ban-trees and reputation tracking
+- **Proof of Work**: Configurable computational cost requirements
+- **Rate Limiting**: Anonymous token consumption tracking via nullifier sets (no user tracking)
+- **WebAuthn/FIDO2**: Hardware-backed identity verification (optional)
+- **Combined Defense**: Multiple mechanisms can be layered for stronger protection
+- Configured via deployment environment (invitation/PoW/rate-limit/WebAuthn/combined/none)
 
 ### Witness: Timestamped Attestations
 
@@ -1139,8 +1151,10 @@ Tests gracefully degrade to fallback mode, demonstrating resilience:
 
 **Freebird:**
 - Separate issuer/verifier infrastructure
-- Rate limiting for Sybil resistance
+- Configure Sybil resistance (invitation system/PoW/rate-limit/WebAuthn/combined)
 - Hardware-backed keys (HSM)
+- TLS required for all token transmission
+- Monitor nullifier sets for replay attack attempts
 
 ---
 
