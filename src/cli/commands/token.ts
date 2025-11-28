@@ -60,6 +60,18 @@ export class TokenCommand extends Command {
           await this.balance(walletManager, tokenStorage, options);
           break;
 
+        case 'split':
+          await this.split(walletManager, tokenStorage, infraManager, positional, options);
+          break;
+
+        case 'merge':
+          await this.merge(walletManager, tokenStorage, infraManager, positional, options);
+          break;
+
+        case 'multiparty':
+          await this.multiparty(walletManager, tokenStorage, infraManager, positional, options);
+          break;
+
         default:
           console.error(`Unknown subcommand: ${subcommand}`);
           this.showHelp();
@@ -401,6 +413,272 @@ export class TokenCommand extends Command {
     }
   }
 
+  private async split(
+    walletManager: WalletManager,
+    tokenStorage: TokenStorage,
+    infraManager: InfrastructureManager,
+    positional: string[],
+    options: any
+  ): Promise<void> {
+    const tokenId = this.requireArg(positional, 1, 'token-id');
+    const amountsStr = this.requireOption(options, 'amounts', 'amounts');
+    const recipientsStr = this.requireOption(options, 'recipients', 'recipients');
+
+    try {
+      // Parse amounts
+      const amounts = (amountsStr as string).split(',').map(a => parseInt(a.trim(), 10));
+      if (amounts.some(isNaN) || amounts.some(a => a <= 0)) {
+        throw new Error('All amounts must be positive numbers');
+      }
+
+      // Parse recipient public keys
+      const recipientKeys = (recipientsStr as string).split(',').map(k => k.trim());
+      if (recipientKeys.length !== amounts.length) {
+        throw new Error('Number of recipients must match number of amounts');
+      }
+
+      // Get token
+      const storedToken = tokenStorage.getToken(tokenId);
+      if (!storedToken) {
+        throw new Error(`Token '${tokenId}' not found`);
+      }
+
+      if (storedToken.spent) {
+        throw new Error('Token already spent');
+      }
+
+      const totalAmount = amounts.reduce((sum, a) => sum + a, 0);
+      if (totalAmount !== storedToken.amount) {
+        throw new Error(`Split amounts (${totalAmount}) must equal token amount (${storedToken.amount})`);
+      }
+
+      console.log(`Splitting token ${tokenId} into ${amounts.length} parts...`);
+
+      // Initialize infrastructure
+      console.log('Initializing infrastructure...');
+      const infra = await infraManager.initialize();
+
+      // Recreate token
+      const secret = Crypto.fromHex(storedToken.secretKey);
+      const token = new ScarbuckToken({
+        id: storedToken.id,
+        amount: storedToken.amount,
+        secret,
+        freebird: infra.freebird,
+        witness: infra.witness,
+        gossip: infra.gossip
+      });
+
+      // Split
+      console.log('Creating split package...');
+      const splitPkg = await token.split(
+        amounts,
+        recipientKeys.map(k => ({ bytes: Crypto.fromHex(k) }))
+      );
+
+      // Mark original as spent
+      tokenStorage.markSpent(tokenId);
+
+      console.log('');
+      console.log('✅ Token split successfully!');
+      console.log('');
+      console.log('Split package (send this to recipients):');
+      console.log('');
+      console.log(JSON.stringify({
+        sourceTokenId: splitPkg.sourceTokenId,
+        sourceAmount: splitPkg.sourceAmount,
+        splits: splitPkg.splits.map(s => ({
+          tokenId: s.tokenId,
+          amount: s.amount,
+          commitment: Crypto.toHex(s.commitment)
+        })),
+        nullifier: Crypto.toHex(splitPkg.nullifier),
+        proof: splitPkg.proof,
+        ownershipProof: splitPkg.ownershipProof ? Crypto.toHex(splitPkg.ownershipProof) : undefined
+      }, null, 2));
+      console.log('');
+      console.log(`Split into ${splitPkg.splits.length} tokens:`);
+      splitPkg.splits.forEach((s, i) => {
+        console.log(`  ${i + 1}. ${s.amount} units → ${recipientKeys[i].substring(0, 16)}...`);
+      });
+      console.log('');
+    } catch (error: any) {
+      console.error(`Failed to split token: ${error.message}`);
+      process.exit(1);
+    }
+  }
+
+  private async merge(
+    walletManager: WalletManager,
+    tokenStorage: TokenStorage,
+    infraManager: InfrastructureManager,
+    positional: string[],
+    options: any
+  ): Promise<void> {
+    const tokenIds = positional.slice(1);
+    const recipientKey = this.requireOption(options, 'recipient', 'recipient');
+
+    if (tokenIds.length === 0) {
+      throw new Error('Must provide at least one token ID to merge');
+    }
+
+    try {
+      // Get all tokens
+      const storedTokens = tokenIds.map(id => {
+        const token = tokenStorage.getToken(id);
+        if (!token) {
+          throw new Error(`Token '${id}' not found`);
+        }
+        if (token.spent) {
+          throw new Error(`Token '${id}' already spent`);
+        }
+        return token;
+      });
+
+      const totalAmount = storedTokens.reduce((sum, t) => sum + t.amount, 0);
+
+      console.log(`Merging ${tokenIds.length} tokens (total: ${totalAmount})...`);
+
+      // Initialize infrastructure
+      console.log('Initializing infrastructure...');
+      const infra = await infraManager.initialize();
+
+      // Recreate tokens
+      const tokens = storedTokens.map(st => new ScarbuckToken({
+        id: st.id,
+        amount: st.amount,
+        secret: Crypto.fromHex(st.secretKey),
+        freebird: infra.freebird,
+        witness: infra.witness,
+        gossip: infra.gossip
+      }));
+
+      // Merge
+      console.log('Creating merge package...');
+      const mergePkg = await ScarbuckToken.merge(
+        tokens,
+        { bytes: Crypto.fromHex(recipientKey as string) }
+      );
+
+      // Mark all as spent
+      tokenIds.forEach(id => tokenStorage.markSpent(id));
+
+      console.log('');
+      console.log('✅ Tokens merged successfully!');
+      console.log('');
+      console.log('Merge package (send this to recipient):');
+      console.log('');
+      console.log(JSON.stringify({
+        targetTokenId: mergePkg.targetTokenId,
+        targetAmount: mergePkg.targetAmount,
+        commitment: Crypto.toHex(mergePkg.commitment),
+        sources: mergePkg.sources.map(s => ({
+          tokenId: s.tokenId,
+          amount: s.amount,
+          nullifier: Crypto.toHex(s.nullifier)
+        })),
+        proof: mergePkg.proof,
+        ownershipProofs: mergePkg.ownershipProofs?.map(p => Crypto.toHex(p))
+      }, null, 2));
+      console.log('');
+      console.log(`Merged ${tokenIds.length} tokens into one token of ${totalAmount} units`);
+      console.log('');
+    } catch (error: any) {
+      console.error(`Failed to merge tokens: ${error.message}`);
+      process.exit(1);
+    }
+  }
+
+  private async multiparty(
+    walletManager: WalletManager,
+    tokenStorage: TokenStorage,
+    infraManager: InfrastructureManager,
+    positional: string[],
+    options: any
+  ): Promise<void> {
+    const tokenId = this.requireArg(positional, 1, 'token-id');
+    const recipientsStr = this.requireOption(options, 'recipients', 'recipients');
+
+    try {
+      // Parse recipients (format: "key:amount,key:amount,...")
+      const recipients = (recipientsStr as string).split(',').map(r => {
+        const [key, amountStr] = r.trim().split(':');
+        const amount = parseInt(amountStr, 10);
+        if (!key || isNaN(amount) || amount <= 0) {
+          throw new Error('Recipients must be in format: key:amount,key:amount,...');
+        }
+        return { publicKey: { bytes: Crypto.fromHex(key) }, amount };
+      });
+
+      // Get token
+      const storedToken = tokenStorage.getToken(tokenId);
+      if (!storedToken) {
+        throw new Error(`Token '${tokenId}' not found`);
+      }
+
+      if (storedToken.spent) {
+        throw new Error('Token already spent');
+      }
+
+      const totalAmount = recipients.reduce((sum, r) => sum + r.amount, 0);
+      if (totalAmount !== storedToken.amount) {
+        throw new Error(`Recipient amounts (${totalAmount}) must equal token amount (${storedToken.amount})`);
+      }
+
+      console.log(`Creating multi-party transfer to ${recipients.length} recipients...`);
+
+      // Initialize infrastructure
+      console.log('Initializing infrastructure...');
+      const infra = await infraManager.initialize();
+
+      // Recreate token
+      const secret = Crypto.fromHex(storedToken.secretKey);
+      const token = new ScarbuckToken({
+        id: storedToken.id,
+        amount: storedToken.amount,
+        secret,
+        freebird: infra.freebird,
+        witness: infra.witness,
+        gossip: infra.gossip
+      });
+
+      // Multi-party transfer
+      console.log('Creating multi-party package...');
+      const multiPartyPkg = await token.transferMultiParty(recipients);
+
+      // Mark as spent
+      tokenStorage.markSpent(tokenId);
+
+      console.log('');
+      console.log('✅ Multi-party transfer created successfully!');
+      console.log('');
+      console.log('Multi-party package (send this to recipients):');
+      console.log('');
+      console.log(JSON.stringify({
+        sourceTokenId: multiPartyPkg.sourceTokenId,
+        sourceAmount: multiPartyPkg.sourceAmount,
+        recipients: multiPartyPkg.recipients.map(r => ({
+          publicKey: Crypto.toHex(r.publicKey.bytes),
+          amount: r.amount,
+          commitment: Crypto.toHex(r.commitment),
+          tokenId: r.tokenId
+        })),
+        nullifier: Crypto.toHex(multiPartyPkg.nullifier),
+        proof: multiPartyPkg.proof,
+        ownershipProof: multiPartyPkg.ownershipProof ? Crypto.toHex(multiPartyPkg.ownershipProof) : undefined
+      }, null, 2));
+      console.log('');
+      console.log('Recipients:');
+      multiPartyPkg.recipients.forEach((r, i) => {
+        console.log(`  ${i + 1}. ${r.amount} units (index: ${i})`);
+      });
+      console.log('');
+    } catch (error: any) {
+      console.error(`Failed to create multi-party transfer: ${error.message}`);
+      process.exit(1);
+    }
+  }
+
   showHelp(): void {
     console.log(`
 USAGE:
@@ -410,24 +688,28 @@ SUBCOMMANDS:
   mint                          Mint a new token
   transfer <token-id> <to-key>  Transfer token to recipient
   receive                       Receive a transferred token
+  split <token-id>              Split token into multiple tokens
+  merge <token-ids...>          Merge multiple tokens into one
+  multiparty <token-id>         Multi-party transfer
   list                          List all tokens
   show <token-id>               Show token details
   balance                       Show wallet balance
 
 OPTIONS:
-  --amount AMOUNT       Token amount (for mint)
-  --wallet NAME         Wallet to use (default: default wallet)
-  --package JSON        Transfer package JSON (for receive)
-  --secret              Show secret key (for show)
-  --spent               Include spent tokens (for list)
-  -h, --help            Show this help message
+  --amount AMOUNT          Token amount (for mint)
+  --wallet NAME            Wallet to use (default: default wallet)
+  --package JSON           Transfer package JSON (for receive)
+  --amounts AMOUNTS        Comma-separated amounts (for split)
+  --recipients KEYS        Comma-separated recipient public keys (for split)
+  --recipients KEY:AMT,... Key:amount pairs (for multiparty)
+  --recipient KEY          Recipient public key (for merge)
+  --secret                 Show secret key (for show)
+  --spent                  Include spent tokens (for list)
+  -h, --help               Show this help message
 
 EXAMPLES:
   # Mint a token
   scar token mint --amount 100
-
-  # Mint to specific wallet
-  scar token mint --amount 50 --wallet alice
 
   # Transfer a token
   scar token transfer abc123... 0x456def...
@@ -435,18 +717,20 @@ EXAMPLES:
   # Receive a token
   scar token receive --package '{"tokenId":"abc","amount":100,...}'
 
+  # Split a token into 3 parts
+  scar token split abc123... --amounts 30,40,30 --recipients 0x111...,0x222...,0x333...
+
+  # Merge multiple tokens
+  scar token merge abc123... def456... ghi789... --recipient 0x999...
+
+  # Multi-party transfer
+  scar token multiparty abc123... --recipients 0x111...:30,0x222...:40,0x333...:30
+
   # List tokens
   scar token list
 
-  # List tokens for specific wallet
-  scar token list --wallet alice
-
-  # Show token details
-  scar token show abc123...
-
   # Get balance
   scar token balance
-  scar token balance --wallet alice
 `);
   }
 }
