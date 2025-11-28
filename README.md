@@ -475,6 +475,275 @@ validator.setMinConfidence(0.9); // Require 90% confidence
 
 ---
 
+## Phase 3: Advanced Features
+
+### Token Splitting
+
+Split a single token into multiple smaller tokens with specified amounts.
+
+```typescript
+import { ScarbuckToken } from 'scarce';
+
+// Mint a token
+const token = ScarbuckToken.mint(100, freebird, witness, gossip);
+
+// Split into 3 parts
+const splitPkg = await token.split(
+  [30, 40, 30],  // amounts (must sum to 100)
+  [recipient1Key, recipient2Key, recipient3Key]  // one key per split
+);
+
+// Recipients receive their splits
+const token1 = await ScarbuckToken.receiveSplit(
+  splitPkg,
+  recipient1Secret,
+  0,  // split index
+  freebird,
+  witness,
+  gossip
+);
+```
+
+**Properties:**
+- Amounts must sum to original token amount
+- Each split gets a new token ID
+- Original token is spent atomically
+- All splits are created in a single timestamped transaction
+
+### Token Merging
+
+Combine multiple tokens into a single larger token.
+
+```typescript
+import { ScarbuckToken } from 'scarce';
+
+// Create multiple tokens
+const token1 = ScarbuckToken.mint(30, freebird, witness, gossip);
+const token2 = ScarbuckToken.mint(40, freebird, witness, gossip);
+const token3 = ScarbuckToken.mint(30, freebird, witness, gossip);
+
+// Merge into single token
+const mergePkg = await ScarbuckToken.merge(
+  [token1, token2, token3],
+  recipientKey
+);
+
+// Recipient receives merged token
+const mergedToken = await ScarbuckToken.receiveMerge(
+  mergePkg,
+  recipientSecret,
+  freebird,
+  witness,
+  gossip
+);
+
+console.log(mergedToken.getMetadata().amount); // 100
+```
+
+**Properties:**
+- All source tokens must be unspent
+- All source tokens are spent atomically
+- New token ID is generated for merged result
+- Maintains double-spend prevention across all inputs
+
+### Multi-Party Transfers
+
+Transfer a token to multiple recipients atomically in a single transaction.
+
+```typescript
+import { ScarbuckToken } from 'scarce';
+
+const token = ScarbuckToken.mint(100, freebird, witness, gossip);
+
+// Transfer to 3 recipients atomically
+const multiPartyPkg = await token.transferMultiParty([
+  { publicKey: alice, amount: 30 },
+  { publicKey: bob, amount: 40 },
+  { publicKey: carol, amount: 30 }
+]);
+
+// Each recipient receives their portion
+const aliceToken = await ScarbuckToken.receiveMultiParty(
+  multiPartyPkg,
+  aliceSecret,
+  0,  // recipient index
+  freebird,
+  witness,
+  gossip
+);
+```
+
+**Use Cases:**
+- Payroll disbursements
+- Revenue sharing
+- Multi-party settlements
+- Group payments
+
+**Properties:**
+- All-or-nothing atomicity
+- Single nullifier for source token
+- Each recipient gets unique token ID
+- Amounts must sum to source token amount
+
+### Conditional Payments (HTLCs)
+
+Hash Time-Locked Contracts enable conditional payments based on cryptographic secrets or time constraints.
+
+#### Hash-Locked Transfers
+
+```typescript
+import { ScarbuckToken, Crypto, type HTLCCondition } from 'scarce';
+
+// Create a secret preimage
+const preimage = Crypto.randomBytes(32);
+const hashlock = Crypto.hashString(Crypto.toHex(preimage));
+
+// Create hash-locked transfer
+const condition: HTLCCondition = {
+  type: 'hash',
+  hashlock
+};
+
+const htlcPkg = await token.transferHTLC(
+  recipientKey,
+  condition
+);
+
+// Recipient unlocks with preimage
+const receivedToken = await ScarbuckToken.receiveHTLC(
+  htlcPkg,
+  recipientSecret,
+  preimage,  // must match hashlock
+  freebird,
+  witness,
+  gossip
+);
+```
+
+**Use Cases:**
+- Atomic swaps
+- Cross-chain exchanges
+- Trustless escrow
+- Payment channels
+
+#### Time-Locked Transfers
+
+```typescript
+// Timelock expires in 1 hour
+const timelock = Date.now() + 3600_000;
+
+const condition: HTLCCondition = {
+  type: 'time',
+  timelock
+};
+
+const htlcPkg = await token.transferHTLC(
+  recipientKey,
+  condition,
+  refundKey  // required for time-locked HTLCs
+);
+
+// Recipient can claim before expiry
+if (Date.now() < timelock) {
+  const receivedToken = await ScarbuckToken.receiveHTLC(
+    htlcPkg,
+    recipientSecret,
+    undefined,
+    freebird,
+    witness,
+    gossip
+  );
+}
+
+// Sender can refund after expiry
+if (Date.now() >= timelock) {
+  const refundedToken = await ScarbuckToken.refundHTLC(
+    htlcPkg,
+    refundSecret,
+    freebird,
+    witness,
+    gossip
+  );
+}
+```
+
+**Use Cases:**
+- Time-delayed payments
+- Subscription renewals
+- Conditional bounties
+- Deadline-based escrow
+
+### Cross-Federation Bridging
+
+Transfer tokens between different Witness federations while maintaining security guarantees.
+
+```typescript
+import { FederationBridge, WitnessAdapter, NullifierGossip } from 'scarce';
+
+// Setup two federations
+const sourceFederation = {
+  witness: new WitnessAdapter({
+    gatewayUrl: 'http://federation-a.example.com',
+    networkId: 'federation-a'
+  }),
+  gossip: new NullifierGossip({ witness })
+};
+
+const targetFederation = {
+  witness: new WitnessAdapter({
+    gatewayUrl: 'http://federation-b.example.com',
+    networkId: 'federation-b'
+  }),
+  gossip: new NullifierGossip({ witness })
+};
+
+// Create bridge
+const bridge = new FederationBridge({
+  sourceFederation: 'federation-a',
+  targetFederation: 'federation-b',
+  sourceWitness: sourceFederation.witness,
+  targetWitness: targetFederation.witness,
+  sourceGossip: sourceFederation.gossip,
+  targetGossip: targetFederation.gossip,
+  freebird
+});
+
+// Bridge token from source to target
+const token = ScarbuckToken.mint(100, freebird, sourceFederation.witness, sourceFederation.gossip);
+
+const bridgePkg = await bridge.bridgeToken(token, recipientKey);
+
+// Recipient receives in target federation
+const receivedToken = await bridge.receiveBridged(
+  bridgePkg,
+  recipientSecret
+);
+
+// Verify bridge succeeded
+const isValid = await bridge.verifyBridge(bridgePkg);
+```
+
+**How It Works:**
+
+1. **Lock Phase**: Token is locked in source federation via nullifier
+2. **Proof Phase**: Source federation timestamps the lock
+3. **Mint Phase**: Target federation validates source proof and mints equivalent token
+4. **Verification**: Both federations maintain proofs for dispute resolution
+
+**Properties:**
+- Two-phase commit ensures atomicity
+- Source token cannot be double-spent
+- Target token requires proof from source
+- Maintains traceability via token IDs
+
+**Use Cases:**
+- Cross-network value transfer
+- Federation migration
+- Multi-jurisdiction compliance
+- Network interoperability
+
+---
+
 ## Performance Characteristics
 
 ### Latency
@@ -557,6 +826,7 @@ npm test
 npm run test:basic          # Basic token transfer
 npm run test:double-spend   # Double-spend detection
 npm run test:degradation    # Graceful degradation (works without services)
+npm run test:phase3         # Phase 3 advanced features
 ```
 
 **Expected Results (with all services running):**
@@ -631,11 +901,11 @@ Tests gracefully degrade to fallback mode, demonstrating resilience:
 - [x] VOPRF production integration (Freebird) ✅ **COMPLETE**
 - [x] Tor onion service support ✅ **COMPLETE**
 
-**Phase 3: Advanced Features**
-- [ ] Token splitting/merging
-- [ ] Multi-party transfers
-- [ ] Conditional payments (HTLCs)
-- [ ] Cross-federation bridging
+**Phase 3: Advanced Features** ✅ **COMPLETE** (4/4 complete, 100%)
+- [x] Token splitting/merging ✅ **COMPLETE**
+- [x] Multi-party transfers ✅ **COMPLETE**
+- [x] Conditional payments (HTLCs) ✅ **COMPLETE**
+- [x] Cross-federation bridging ✅ **COMPLETE**
 
 **Phase 4: Tooling**
 - [ ] Web wallet interface

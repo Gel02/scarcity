@@ -93,4 +93,12 @@ export class Crypto {
     );
     return this.toHex(hash);
   }
+
+  /**
+   * Hash a string and return hex string
+   */
+  static hashString(input: string): string {
+    const hash = this.hash(input);
+    return this.toHex(hash);
+  }
 }
