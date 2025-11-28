@@ -10,6 +10,59 @@ import type { PeerConnection, GossipMessage } from '../types.js';
 
 export interface HyperTokenAdapterConfig {
   readonly relayUrl?: string;
+  readonly rateLimitPerSecond?: number;  // Max messages per second per peer (default: 10)
+  readonly rateLimitBurst?: number;      // Max burst size (default: 20)
+}
+
+/**
+ * Leaky bucket rate limiter for peer message throttling
+ */
+class LeakyBucket {
+  private tokens: number;
+  private lastRefill: number;
+  private readonly capacity: number;
+  private readonly refillRate: number;
+
+  constructor(capacity: number, refillRate: number) {
+    this.capacity = capacity;
+    this.refillRate = refillRate; // tokens per second
+    this.tokens = capacity;
+    this.lastRefill = Date.now();
+  }
+
+  /**
+   * Try to consume a token. Returns true if allowed, false if rate limited.
+   */
+  tryConsume(): boolean {
+    this.refill();
+
+    if (this.tokens >= 1) {
+      this.tokens -= 1;
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Refill tokens based on elapsed time
+   */
+  private refill(): void {
+    const now = Date.now();
+    const elapsed = (now - this.lastRefill) / 1000; // seconds
+    const tokensToAdd = elapsed * this.refillRate;
+
+    this.tokens = Math.min(this.capacity, this.tokens + tokensToAdd);
+    this.lastRefill = now;
+  }
+
+  /**
+   * Get current token count (for monitoring)
+   */
+  getTokens(): number {
+    this.refill();
+    return this.tokens;
+  }
 }
 
 /**
@@ -21,11 +74,14 @@ class HyperTokenPeerWrapper implements PeerConnection {
   private htManager: HybridPeerManager;
   private messageHandler?: (data: GossipMessage) => void;
   private targetPeerId: string;
+  private rateLimiter: LeakyBucket;
+  private droppedMessages: number = 0;
 
-  constructor(htManager: HybridPeerManager, targetPeerId: string) {
+  constructor(htManager: HybridPeerManager, targetPeerId: string, rateLimitPerSecond: number, rateLimitBurst: number) {
     this.htManager = htManager;
     this.targetPeerId = targetPeerId;
     this.id = targetPeerId;
+    this.rateLimiter = new LeakyBucket(rateLimitBurst, rateLimitPerSecond);
   }
 
   async send(data: GossipMessage): Promise<void> {
@@ -55,9 +111,34 @@ class HyperTokenPeerWrapper implements PeerConnection {
    * Internal: Called by HyperTokenAdapter when a message arrives from this peer
    */
   _handleIncomingMessage(data: GossipMessage): void {
+    // LAYER 1: RATE LIMITING - Apply leaky bucket algorithm
+    if (!this.rateLimiter.tryConsume()) {
+      this.droppedMessages++;
+      console.warn(`[HyperToken] Rate limit exceeded for peer ${this.id}, dropping message (${this.droppedMessages} total dropped)`);
+      return;
+    }
+
     if (this.messageHandler) {
       this.messageHandler(data);
     }
+  }
+
+  /**
+   * Get rate limiting statistics
+   */
+  getRateLimitStats() {
+    return {
+      droppedMessages: this.droppedMessages,
+      currentTokens: this.rateLimiter.getTokens()
+    };
+  }
+
+  /**
+   * Disconnect this peer
+   */
+  disconnect(): void {
+    // Mark as disconnected - actual cleanup happens in adapter
+    console.log(`[HyperToken] Disconnecting peer ${this.id}`);
   }
 }
 
@@ -71,6 +152,8 @@ class HyperTokenPeerWrapper implements PeerConnection {
  */
 export class HyperTokenAdapter {
   private readonly relayUrl: string;
+  private readonly rateLimitPerSecond: number;
+  private readonly rateLimitBurst: number;
   private htManager: HybridPeerManager | null = null;
   private peerWrappers = new Map<string, HyperTokenPeerWrapper>();
   private isReady = false;
@@ -80,6 +163,8 @@ export class HyperTokenAdapter {
 
   constructor(config: HyperTokenAdapterConfig = {}) {
     this.relayUrl = config.relayUrl ?? 'ws://localhost:8080';
+    this.rateLimitPerSecond = config.rateLimitPerSecond ?? 10;
+    this.rateLimitBurst = config.rateLimitBurst ?? 20;
 
     // Create a promise that resolves when connection is ready
     this.readyPromise = new Promise<void>((resolve, reject) => {
@@ -198,8 +283,13 @@ export class HyperTokenAdapter {
       };
     }
 
-    // Create wrapper
-    const wrapper = new HyperTokenPeerWrapper(this.htManager, targetPeerId);
+    // Create wrapper with rate limiting
+    const wrapper = new HyperTokenPeerWrapper(
+      this.htManager,
+      targetPeerId,
+      this.rateLimitPerSecond,
+      this.rateLimitBurst
+    );
     this.peerWrappers.set(targetPeerId, wrapper);
 
     return wrapper;

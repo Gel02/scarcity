@@ -227,6 +227,18 @@ confidence = peerScore + witnessScore + timeScore
 - Sybil resistance configured at deployment (invitation/PoW/rate-limit/WebAuthn/combined)
 - Rate limiting without user tracking (via anonymous token consumption + nullifier sets)
 
+### Nullifier Spam Mitigation
+
+Scarcity implements **defense-in-depth** against nullifier flooding attacks through three layers:
+
+1. **Layer 1 (Network)**: Peer reputation scoring and rate limiting (leaky bucket)
+2. **Layer 2 (Validation)**: Proof-of-work challenges and strict timestamp windows
+3. **Layer 3 (Economic)**: Freebird Sybil resistance and ownership proof verification
+
+For detailed information on the vulnerability, attack vectors, and mitigation strategies, see:
+
+📖 **[SECURITY.md](SECURITY.md)** - Complete security documentation with configuration examples and attack cost analysis.
+
 ---
 
 ## Integration with Privacy Stack

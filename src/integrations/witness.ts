@@ -16,6 +16,7 @@ export interface WitnessAdapterConfig {
   readonly gatewayUrl: string;
   readonly networkId?: string;
   readonly tor?: TorConfig;
+  readonly powDifficulty?: number; // Proof-of-work difficulty in bits (default: 0 = disabled)
 }
 
 /**
@@ -28,12 +29,14 @@ export class WitnessAdapter implements WitnessClient {
   private readonly gatewayUrl: string;
   private readonly networkId: string;
   private readonly tor: TorProxy | null;
+  private readonly powDifficulty: number;
   private config: any = null;
 
   constructor(config: WitnessAdapterConfig) {
     this.gatewayUrl = config.gatewayUrl;
     this.networkId = config.networkId ?? 'scarcity-network';
     this.tor = config.tor ? new TorProxy(config.tor) : null;
+    this.powDifficulty = config.powDifficulty ?? 0; // Default: disabled
 
     // Log if Tor is enabled for .onion addresses
     if (TorProxy.isOnionUrl(this.gatewayUrl)) {
@@ -79,17 +82,36 @@ export class WitnessAdapter implements WitnessClient {
    *
    * Submits hash to gateway, which collects threshold signatures
    * from witness nodes and returns signed attestation.
+   *
+   * LAYER 2: PROOF-OF-WORK - If powDifficulty > 0, solves a computational
+   * puzzle before submitting, imposing a "computation cost" on the requester.
    */
   async timestamp(hash: string): Promise<Attestation> {
     await this.init();
 
+    // LAYER 2: PROOF-OF-WORK CHALLENGE
+    // Solve computational puzzle to prevent cheap spam
+    let nonce: number | undefined;
+    if (this.powDifficulty > 0) {
+      const startTime = Date.now();
+      nonce = Crypto.solveProofOfWork(hash, this.powDifficulty);
+      const elapsed = Date.now() - startTime;
+      console.log(`[Witness] PoW solved in ${elapsed}ms (difficulty: ${this.powDifficulty}, nonce: ${nonce})`);
+    }
+
     // Attempt real timestamping if gateway is available
     if (this.config) {
       try {
+        const requestBody: any = { hash };
+        if (nonce !== undefined) {
+          requestBody.nonce = nonce;
+          requestBody.difficulty = this.powDifficulty;
+        }
+
         const response = await this.fetch(`${this.gatewayUrl}/v1/timestamp`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ hash })
+          body: JSON.stringify(requestBody)
         });
 
         if (response.ok) {

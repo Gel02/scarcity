@@ -113,6 +113,7 @@ export interface GossipMessage {
   readonly nullifier?: Uint8Array;
   readonly proof?: Attestation;
   readonly timestamp: number;
+  readonly ownershipProof?: Uint8Array;  // Optional Freebird ownership proof for spam resistance
 }
 
 export interface ValidationResult {
