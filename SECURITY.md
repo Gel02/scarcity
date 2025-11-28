@@ -533,6 +533,118 @@ for (const [subnet, count] of stats) {
 
 ---
 
+## 4. MPC Threshold Issuance (Anti-Inflation)
+
+**Vulnerability**: Without a public ledger, there's no way to audit total supply. A compromised Freebird issuer key could mint unlimited tokens, causing "invisible inflation" undetectable by users.
+
+**Solution**: Multi-Party Computation (MPC) threshold issuance splits the issuer key across multiple servers. Clients aggregate partial signatures locally using Lagrange interpolation.
+
+### Configuration
+
+```typescript
+// Single issuer (backward compatible, no MPC)
+const freebird = new FreebirdAdapter({
+  issuerEndpoints: ['https://issuer.example.com'],
+  verifierUrl: 'https://verifier.example.com'
+});
+
+// Multi-issuer MPC with 3 servers (recommended)
+const freebird = new FreebirdAdapter({
+  issuerEndpoints: [
+    'https://issuer1.example.com',
+    'https://issuer2.example.com',
+    'https://issuer3.example.com'
+  ],
+  verifierUrl: 'https://verifier.example.com'
+});
+
+// High-security: 5-of-5 threshold
+const freebird = new FreebirdAdapter({
+  issuerEndpoints: [
+    'https://issuer1.example.com',
+    'https://issuer2.example.com',
+    'https://issuer3.example.com',
+    'https://issuer4.example.com',
+    'https://issuer5.example.com'
+  ],
+  verifierUrl: 'https://verifier.example.com'
+});
+```
+
+### How It Works
+
+**Trusted Dealer Setup** (Phase 1 implementation):
+1. Key dealer splits issuer secret key k into shares: k₁, k₂, k₃
+2. Each server receives one share
+3. Shares satisfy: k = λ₁·k₁ + λ₂·k₂ + λ₃·k₃ (where λᵢ are Lagrange coefficients)
+
+**Token Issuance Flow**:
+1. **Client**: Blinds recipient public key → A = H(pubkey) · r
+2. **Broadcast**: Sends blinded element to all issuers in parallel
+3. **Issuers**: Each server i computes partial signature Bᵢ = A · kᵢ
+4. **Verify**: Client verifies DLEQ proof for each partial signature
+5. **Threshold**: Client waits for majority (⌈n/2⌉) valid responses
+6. **Aggregate**: Client computes final signature using Lagrange interpolation:
+   ```
+   B = Σ(λᵢ · Bᵢ)  where λᵢ = ∏(j≠i) (xⱼ / (xⱼ - xᵢ)) mod N
+   ```
+7. **Finalize**: Client uses aggregated B as the final token
+
+### Cryptographic Properties
+
+**P-256 VOPRF with Threshold Cryptography**:
+- Each issuer has key share kᵢ, public key Qᵢ = G · kᵢ
+- Partial evaluation: Bᵢ = A · kᵢ (where A is blinded element)
+- DLEQ proof proves: log_G(Qᵢ) = log_A(Bᵢ)
+- Aggregation uses Lagrange interpolation in scalar field mod N
+- Final point: B = A · k (where k = Σλᵢ·kᵢ)
+
+**Security Guarantees**:
+- **Byzantine Fault Tolerance**: Tolerates up to ⌊n/2⌋ malicious servers
+- **No Single Point of Failure**: No single server can inflate supply alone
+- **Immediate Verification**: Each partial signature verified with DLEQ proof
+- **Privacy Preserved**: Client aggregates locally without revealing input
+- **Backward Compatible**: Single issuer works as before (no aggregation)
+
+### Benefits
+
+✅ **Inflation Resistance**: Requires collusion of multiple servers to inflate supply
+✅ **Fault Tolerance**: Continues working if some servers are offline
+✅ **Proof Verification**: Invalid partial signatures detected immediately
+✅ **Local Aggregation**: Client controls the final token construction
+✅ **Graceful Degradation**: Warns when below threshold but proceeds with available responses
+
+### Example Output
+
+```
+[Freebird] MPC threshold mode: 3 issuers
+[Freebird] Connected to 3/3 issuers
+[Freebird] Nullifier check: Broadcasting to 3 issuers...
+[Freebird] ✅ VOPRF token issued and aggregated (3/3 issuers)
+```
+
+**Warning output when below threshold:**
+```
+[Freebird] MPC threshold mode: 3 issuers
+[Freebird] Connected to 2/3 issuers
+[Freebird] ⚠️ Only 2/3 valid responses, threshold is 2. Proceeding with available responses.
+[Freebird] ✅ VOPRF token issued and aggregated (2/3 issuers)
+```
+
+### Server Response Format
+
+Each issuer returns:
+```json
+{
+  "token": "base64url_encoded_token",
+  "index": 1  // Server's key share index (1-based)
+}
+```
+
+The token format is: `[ A (33 bytes) | Bᵢ (33 bytes) | DLEQ Proof (64 bytes) ]`
+
+---
+
 ## Combined Security: Best Practices
 
 ### High-Security Configuration
@@ -583,6 +695,7 @@ const validator = new TransferValidator({
 // ✅ Eclipse attacks (outbound peer preference)
 // ✅ Sybil attacks (subnet diversity + peer scoring)
 // ✅ Spam attacks (PoW + rate limiting from previous layers)
+// ✅ Invisible inflation (MPC threshold issuance)
 ```
 
 ### Security Monitoring
@@ -622,21 +735,13 @@ setInterval(() => {
 ✅ **Single Point of Failure (Gateway)**: Solved with multi-gateway quorum
 ✅ **Eclipse Attack (Gossip Layer)**: Mitigated with outbound peer preference
 ✅ **Sybil Attack (Gossip Layer)**: Partially mitigated with subnet diversity checks
+✅ **Invisible Inflation (Economic Layer)**: Solved with MPC threshold issuance
 
 ### Remaining Challenges
 
 These require more complex solutions and are documented for future development:
 
-#### 1. Invisible Inflation (Economic Layer)
-
-**Vulnerability**: Without a public ledger, there's no way to audit total supply. A compromised Freebird issuer key could mint unlimited tokens.
-
-**Future Solutions**:
-- Public Commitment Registry: Issuer publishes daily Merkle root of all issued commitments
-- Multi-Party Computation (MPC) Issuance: Split issuer key across multiple servers
-- Periodic External Audits: Independent verification of issuer operations
-
-#### 2. Traffic Analysis & Metadata Leakage
+#### 1. Traffic Analysis & Metadata Leakage
 
 **Vulnerability**: While Tor hides IPs and VOPRF hides identity, transaction graph analysis could correlate transfers.
 
@@ -645,7 +750,7 @@ These require more complex solutions and are documented for future development:
 - Dandelion++ Routing: Privacy-preserving routing phase before epidemic broadcast
 - Decoy Traffic: Send fake transactions to obfuscate real patterns
 
-#### 3. Advanced Eclipse Attacks
+#### 2. Advanced Eclipse Attacks
 
 **Current mitigation** (outbound peer preference) is not foolproof. An attacker with network-level access could still intercept outbound connections.
 
