@@ -32,7 +32,7 @@ export async function runPhase3Tests(): Promise<any> {
 
   // Setup infrastructure
   const freebird = new FreebirdAdapter({
-    issuerUrl: 'http://localhost:8081',
+    issuerEndpoints: ['http://localhost:8081'],
     verifierUrl: 'http://localhost:8082'
   });
 

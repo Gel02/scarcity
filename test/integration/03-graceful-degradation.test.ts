@@ -27,7 +27,7 @@ export async function runGracefulDegradationTest(): Promise<void> {
   // Test 1: Freebird with invalid URLs (should fall back)
   await runner.run('Freebird fallback mode', async () => {
     const freebird = new FreebirdAdapter({
-      issuerUrl: 'http://invalid-url-12345.example.com',
+      issuerEndpoints: ['http://invalid-url-12345.example.com'],
       verifierUrl: 'http://invalid-url-67890.example.com'
     });
 
@@ -88,7 +88,7 @@ export async function runGracefulDegradationTest(): Promise<void> {
   // Test 4: Complete token transfer in fallback mode
   await runner.run('End-to-end transfer in fallback mode', async () => {
     const freebird = new FreebirdAdapter({
-      issuerUrl: 'http://invalid.example.com',
+      issuerEndpoints: ['http://invalid.example.com'],
       verifierUrl: 'http://invalid.example.com'
     });
 
@@ -148,7 +148,7 @@ export async function runGracefulDegradationTest(): Promise<void> {
   await runner.run('Mixed service availability', async () => {
     // Real Freebird URLs (may or may not be running)
     const freebird = new FreebirdAdapter({
-      issuerUrl: 'http://localhost:8081',
+      issuerEndpoints: ['http://localhost:8081'],
       verifierUrl: 'http://localhost:8082'
     });
 

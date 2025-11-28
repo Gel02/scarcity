@@ -58,7 +58,7 @@ export async function runSecurityHardeningTest(): Promise<void> {
   // Test 2: Outbound Peer Preference
   await runner.run('Outbound peer preference in confidence scoring', async () => {
     const freebird = new FreebirdAdapter({
-      issuerUrl: 'http://localhost:8081',
+      issuerEndpoints: ['http://localhost:8081'],
       verifierUrl: 'http://localhost:8082'
     });
 
@@ -199,7 +199,7 @@ export async function runSecurityHardeningTest(): Promise<void> {
   // Test 5: Combined Security Features
   await runner.run('Combined security: Multi-gateway + Peer diversity', async () => {
     const freebird = new FreebirdAdapter({
-      issuerUrl: 'http://localhost:8081',
+      issuerEndpoints: ['http://localhost:8081'],
       verifierUrl: 'http://localhost:8082'
     });
 
