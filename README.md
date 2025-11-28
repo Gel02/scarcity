@@ -1261,7 +1261,19 @@ A: No. Scarcity is zero-cost by design. No incentives, no fees.
 A: Application-specific. Could be fiat-backed, work-based, time-based, etc.
 
 **Q: Is this production-ready?**
-A: Phase 1 is complete with working integrations. However, this is still a research prototype requiring Phase 2 hardening (BLS aggregation, WebRTC, production VOPRF) before production use.
+A: Phases 1-3 are complete with all core features implemented and tested. Phase 2 hardening (BLS aggregation, WebRTC, production VOPRF, Tor support) is complete. Phase 3 advanced features (split/merge, HTLCs, bridging) are complete with CLI tools. This is still a research prototype - production deployment requires security audits, stress testing, and operational hardening.
+
+**Q: What are HTLCs and why would I use them?**
+A: Hash Time-Locked Contracts enable conditional payments. Use hash locks for atomic swaps (both parties trade secrets), or time locks for refundable payments (claim before deadline or get refunded). Perfect for trustless escrow and cross-chain exchanges.
+
+**Q: Can I transfer tokens between different federations?**
+A: Yes! Use the bridge feature to transfer tokens between different Witness federations. The bridge uses a two-phase commit: lock token in source federation, then mint equivalent in target. Both CLI (`scar bridge`) and programmatic API are available.
+
+**Q: How do I split or merge tokens?**
+A: Use `scar split` to divide one token into multiple smaller tokens, or `scar merge` to combine multiple tokens into one. This is useful for making change, consolidating funds, or distributing payments. Both operations are atomic and maintain double-spend protection.
+
+**Q: Do I need to run my own infrastructure?**
+A: Not necessarily. You can connect to existing Witness federations, Freebird services, and HyperToken relays. For maximum privacy and sovereignty, run your own. The CLI makes it easy to switch between federations via config.
 
 ---
 
