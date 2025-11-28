@@ -308,7 +308,7 @@ gossip.addPeer(peers[0]);
 Scarcity supports Tor hidden services (.onion addresses) for maximum privacy and censorship resistance. All HTTP/HTTPS integrations (Freebird, Witness) automatically route through Tor's SOCKS5 proxy when connecting to .onion addresses.
 
 ```typescript
-import { FreebirdAdapter, WitnessAdapter, configureTor } from 'scarce';
+import { FreebirdAdapter, WitnessAdapter, configureTor } from 'scarcity';
 
 // Option 1: Global Tor configuration
 configureTor({
@@ -393,7 +393,7 @@ import {
   FreebirdAdapter,
   WitnessAdapter,
   HyperTokenAdapter
-} from 'scarce';
+} from 'scarcity';
 
 // Initialize infrastructure
 const freebird = new FreebirdAdapter({
@@ -482,7 +482,7 @@ validator.setMinConfidence(0.9); // Require 90% confidence
 Split a single token into multiple smaller tokens with specified amounts.
 
 ```typescript
-import { ScarbuckToken } from 'scarce';
+import { ScarbuckToken } from 'scarcity';
 
 // Mint a token
 const token = ScarbuckToken.mint(100, freebird, witness, gossip);
@@ -515,7 +515,7 @@ const token1 = await ScarbuckToken.receiveSplit(
 Combine multiple tokens into a single larger token.
 
 ```typescript
-import { ScarbuckToken } from 'scarce';
+import { ScarbuckToken } from 'scarcity';
 
 // Create multiple tokens
 const token1 = ScarbuckToken.mint(30, freebird, witness, gossip);
@@ -551,7 +551,7 @@ console.log(mergedToken.getMetadata().amount); // 100
 Transfer a token to multiple recipients atomically in a single transaction.
 
 ```typescript
-import { ScarbuckToken } from 'scarce';
+import { ScarbuckToken } from 'scarcity';
 
 const token = ScarbuckToken.mint(100, freebird, witness, gossip);
 
@@ -592,7 +592,7 @@ Hash Time-Locked Contracts enable conditional payments based on cryptographic se
 #### Hash-Locked Transfers
 
 ```typescript
-import { ScarbuckToken, Crypto, type HTLCCondition } from 'scarce';
+import { ScarbuckToken, Crypto, type HTLCCondition } from 'scarcity';
 
 // Create a secret preimage
 const preimage = Crypto.randomBytes(32);
@@ -678,7 +678,7 @@ if (Date.now() >= timelock) {
 Transfer tokens between different Witness federations while maintaining security guarantees.
 
 ```typescript
-import { FederationBridge, WitnessAdapter, NullifierGossip } from 'scarce';
+import { FederationBridge, WitnessAdapter, NullifierGossip } from 'scarcity';
 
 // Setup two federations
 const sourceFederation = {
