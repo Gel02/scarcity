@@ -257,7 +257,7 @@ export class WitnessAdapter implements WitnessClient {
           }))
         };
 
-        const response = await this.fetch(`${this.gatewayUrl}/v1/verify`, {
+        const response = await this.fetch(`${this.gatewayUrls}/v1/verify`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ attestation: witnessAttestation })
