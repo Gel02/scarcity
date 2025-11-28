@@ -21,12 +21,16 @@ Traditional cryptocurrencies require one of three sacrifices:
 3. **Publicity** (transparent ledgers, wallet addresses)
 
 Scarcity refuses all three. It's designed from first principles with these constraints:
-
-- **Privacy-Preserving**: With Freebird, sender/receiver unlinkable
-- **Serverless**: With HyperToken, P2P without catastrophic infrastructure
-- **Provable**: With Witness, cryptographically verifiable
+ 
+- **Privacy-Preserving**: With **[Freebird](https://github.com/flammafex/freebird)**, sender/receiver unlinkable
+- **Serverless**: With **[HyperToken](https://github.com/flammafex/hypertoken)**, P2P without catastrophic infrastructure
+- **Provable**: With **[Witness](https://github.com/flammafex/witness)**, cryptographically verifiable
 - **Zero-Cost & Zero-Waste**: No gas fees, no mining, no staking — and ~12 million times less energy than Bitcoin ([details](ENVIRONMENT.md))
 - **Anonymous**: No wallet addresses, no on-chain history
+
+- **[Freebird](https://github.com/flammafex/freebird)**: Anonymous authorization infrastructure
+- **[HyperToken](https://github.com/flammafex/hypertoken)**: Distributed state synchronization
+- **[Witness](https://github.com/flammafex/witness)**: Threshold signature timestamping
 
 ---
 
