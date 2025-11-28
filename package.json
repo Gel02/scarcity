@@ -5,6 +5,9 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "bin": {
+    "scar": "./dist/src/cli/index.js"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
@@ -13,6 +16,7 @@
     "test:basic": "npm run build && node dist/test/integration/01-basic-transfer.test.js",
     "test:double-spend": "npm run build && node dist/test/integration/02-double-spend.test.js",
     "test:degradation": "npm run build && node dist/test/integration/03-graceful-degradation.test.js",
+    "test:phase3": "npm run build && node dist/test/integration/04-phase3-features.test.js",
     "lint": "eslint src/"
   },
   "keywords": [

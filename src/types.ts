@@ -32,6 +32,76 @@ export interface TransferPackage {
   readonly ownershipProof?: Uint8Array;
 }
 
+export interface SplitPackage {
+  readonly sourceTokenId: string;
+  readonly sourceAmount: number;
+  readonly splits: Array<{
+    tokenId: string;
+    amount: number;
+    commitment: Uint8Array;
+  }>;
+  readonly nullifier: Uint8Array;
+  readonly proof: Attestation;
+  readonly ownershipProof?: Uint8Array;
+}
+
+export interface MergePackage {
+  readonly targetTokenId: string;
+  readonly targetAmount: number;
+  readonly commitment: Uint8Array;
+  readonly sources: Array<{
+    tokenId: string;
+    amount: number;
+    nullifier: Uint8Array;
+  }>;
+  readonly proof: Attestation;
+  readonly ownershipProofs?: Uint8Array[];
+}
+
+export interface MultiPartyTransfer {
+  readonly sourceTokenId: string;
+  readonly sourceAmount: number;
+  readonly recipients: Array<{
+    publicKey: PublicKey;
+    amount: number;
+    commitment: Uint8Array;
+    tokenId: string;
+  }>;
+  readonly nullifier: Uint8Array;
+  readonly proof: Attestation;
+  readonly ownershipProof?: Uint8Array;
+}
+
+export interface HTLCCondition {
+  readonly type: 'hash' | 'time';
+  readonly hashlock?: string;  // SHA-256 hash for hash-locked
+  readonly timelock?: number;  // Unix timestamp for time-locked
+  readonly preimage?: Uint8Array;  // Secret preimage for unlocking
+}
+
+export interface HTLCPackage {
+  readonly tokenId: string;
+  readonly amount: number;
+  readonly commitment: Uint8Array;
+  readonly nullifier: Uint8Array;
+  readonly condition: HTLCCondition;
+  readonly proof: Attestation;
+  readonly ownershipProof?: Uint8Array;
+  readonly refundPublicKey?: PublicKey;  // For refunds after timelock
+}
+
+export interface BridgePackage {
+  readonly sourceTokenId: string;
+  readonly sourceFederation: string;
+  readonly targetFederation: string;
+  readonly amount: number;
+  readonly commitment: Uint8Array;
+  readonly nullifier: Uint8Array;
+  readonly sourceProof: Attestation;
+  readonly targetProof?: Attestation;
+  readonly ownershipProof?: Uint8Array;
+}
+
 export interface PeerConnection {
   readonly id: string;
   send(data: GossipMessage): Promise<void>;
