@@ -25,8 +25,25 @@ Scarcity refuses all three. It's designed from first principles with these const
 - **Privacy-Preserving**: With Freebird, sender/receiver unlinkable
 - **Serverless**: With HyperToken, P2P without catastrophic infrastructure
 - **Provable**: With Witness, cryptographically verifiable
-- **Zero-Cost**: No gas fees, no mining, no staking
+- **Zero-Cost & Zero-Waste**: No gas fees, no mining, no staking — and ~12 million times less energy than Bitcoin ([details](ENVIRONMENT.md))
 - **Anonymous**: No wallet addresses, no on-chain history
+
+---
+
+## Environmental Impact
+
+**Scarcity uses ~12 million times less energy per transaction than Bitcoin.**
+
+Traditional cryptocurrencies require massive energy expenditure for mining (Bitcoin: ~150 TWh annually) or validator infrastructure (Ethereum: ~0.01 TWh annually). Scarcity eliminates this waste entirely through gossip-based double-spend prevention and threshold timestamping.
+
+**Energy per transaction:**
+- Bitcoin: ~1,200 kWh (could power a US home for 40+ days)
+- Ethereum: ~0.02 kWh (comparable to a Google search)
+- **Scarcity: ~0.0001 kWh (comparable to sending a message)**
+
+No mining. No proof-of-work. No global ledger synchronization. Just cryptography and gossip.
+
+📊 **[Read the full environmental impact analysis →](ENVIRONMENT.md)**
 
 ---
 
