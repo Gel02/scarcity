@@ -301,6 +301,84 @@ gossip.addPeer(peers[0]);
 - TURN relay support for restrictive network environments
 - Transparent to the gossip protocol - same API for both transports
 
+### Tor: Onion Service Support
+
+**Privacy-Enhanced Connectivity:**
+
+Scarcity supports Tor hidden services (.onion addresses) for maximum privacy and censorship resistance. All HTTP/HTTPS integrations (Freebird, Witness) automatically route through Tor's SOCKS5 proxy when connecting to .onion addresses.
+
+```typescript
+import { FreebirdAdapter, WitnessAdapter, configureTor } from 'scarce';
+
+// Option 1: Global Tor configuration
+configureTor({
+  proxyHost: 'localhost',
+  proxyPort: 9050,          // Default Tor SOCKS port
+  forceProxy: false         // Only use Tor for .onion addresses
+});
+
+// Option 2: Per-adapter configuration
+const freebird = new FreebirdAdapter({
+  issuerUrl: 'http://yourissuer123456.onion',
+  verifierUrl: 'http://yourverifier789.onion',
+  tor: {
+    proxyHost: 'localhost',
+    proxyPort: 9050
+  }
+});
+
+const witness = new WitnessAdapter({
+  gatewayUrl: 'http://yourwitness456.onion',
+  tor: {
+    proxyHost: 'localhost',
+    proxyPort: 9050
+  }
+});
+```
+
+**P-256 VOPRF (Verifiable Oblivious Pseudorandom Function):**
+- Production-ready cryptographic blinding with DLEQ proofs
+- Anonymous token issuance without revealing identity
+- Verifiable: DLEQ proof ensures issuer used correct secret key
+- Oblivious: Issuer cannot link token issuance to redemption
+- Based on RFC 9497 and hash-to-curve (RFC 9380)
+
+**Privacy Stack:**
+- **IP Privacy**: Tor hides your IP address via 3-hop onion routing
+- **Transaction Privacy**: Freebird VOPRF makes sender/receiver unlinkable
+- **Network Privacy**: HyperToken P2P eliminates central servers
+- **Temporal Privacy**: Witness timestamps provide ordering without revealing identity
+- **Censorship Resistance**: .onion addresses cannot be blocked or taken down
+
+**Setting up Tor:**
+```bash
+# Install Tor
+sudo apt install tor          # Ubuntu/Debian
+brew install tor              # macOS
+
+# Start Tor service
+sudo service tor start        # Ubuntu/Debian
+brew services start tor       # macOS
+
+# Check status
+curl --socks5 localhost:9050 https://check.torproject.org/
+```
+
+**Running your own .onion services:**
+1. Configure hidden service in `/etc/tor/torrc`:
+   ```
+   HiddenServiceDir /var/lib/tor/scarcity-issuer/
+   HiddenServicePort 8081 127.0.0.1:8081
+   ```
+2. Restart Tor: `sudo service tor restart`
+3. Get your .onion address: `cat /var/lib/tor/scarcity-issuer/hostname`
+4. Use the `.onion` address in your Scarcity configuration
+
+**Graceful Degradation:**
+- Automatically falls back to clearnet if Tor is unavailable
+- Warns when .onion address detected but Tor not configured
+- No crashes or failures - always functional
+
 ---
 
 ## Usage Example
@@ -547,11 +625,11 @@ Tests gracefully degrade to fallback mode, demonstrating resilience:
 - [x] Real Witness threshold timestamping
 - [x] Comprehensive integration test suite (100% pass)
 
-**Phase 2: Hardening** 🔨 **IN PROGRESS** (3/4 complete, 75%)
+**Phase 2: Hardening** 🔨 ✅ **COMPLETE** (4/4 complete, 100%)
 - [x] BLS signature aggregation (Witness) ✅ **COMPLETE**
 - [x] WebRTC peer connections (HyperToken) ✅ **COMPLETE**
 - [x] VOPRF production integration (Freebird) ✅ **COMPLETE**
-- [ ] Tor onion service support
+- [x] Tor onion service support ✅ **COMPLETE**
 
 **Phase 3: Advanced Features**
 - [ ] Token splitting/merging

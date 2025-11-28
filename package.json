@@ -28,6 +28,7 @@
   "dependencies": {
     "@noble/curves": "^1.9.7",
     "@noble/hashes": "^1.4.0",
+    "socks-proxy-agent": "^8.0.5",
     "ws": "^8.18.0"
   },
   "devDependencies": {

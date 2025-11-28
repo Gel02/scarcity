@@ -9,13 +9,15 @@
  */
 
 import { Crypto } from '../crypto.js';
-import type { FreebirdClient, PublicKey } from '../types.js';
+import type { FreebirdClient, PublicKey, TorConfig } from '../types.js';
 import * as voprf from '../vendor/freebird/voprf.js';
 import type { BlindState } from '../vendor/freebird/voprf.js';
+import { TorProxy } from '../tor.js';
 
 export interface FreebirdAdapterConfig {
   readonly issuerUrl: string;
   readonly verifierUrl: string;
+  readonly tor?: TorConfig;
 }
 
 /**
@@ -31,14 +33,35 @@ export class FreebirdAdapter implements FreebirdClient {
   private readonly issuerUrl: string;
   private readonly verifierUrl: string;
   private readonly context: Uint8Array;
+  private readonly tor: TorProxy | null;
   private metadata: any = null;
   private blindStates: Map<string, BlindState> = new Map();
 
   constructor(config: FreebirdAdapterConfig) {
     this.issuerUrl = config.issuerUrl;
     this.verifierUrl = config.verifierUrl;
+    this.tor = config.tor ? new TorProxy(config.tor) : null;
     // Context must match Freebird server
     this.context = new TextEncoder().encode('freebird:v1');
+
+    // Log if Tor is enabled for .onion addresses
+    if (TorProxy.isOnionUrl(this.issuerUrl) || TorProxy.isOnionUrl(this.verifierUrl)) {
+      if (this.tor) {
+        console.log('[Freebird] Tor enabled for .onion addresses');
+      } else {
+        console.warn('[Freebird] .onion URL detected but Tor not configured');
+      }
+    }
+  }
+
+  /**
+   * Fetch with Tor support for .onion URLs
+   */
+  private async fetch(url: string, options: RequestInit = {}): Promise<Response> {
+    if (this.tor) {
+      return this.tor.fetch(url, options);
+    }
+    return fetch(url, options);
   }
 
   /**
@@ -48,7 +71,7 @@ export class FreebirdAdapter implements FreebirdClient {
     if (this.metadata) return;
 
     try {
-      const response = await fetch(`${this.issuerUrl}/.well-known/issuer`);
+      const response = await this.fetch(`${this.issuerUrl}/.well-known/issuer`);
       if (response.ok) {
         this.metadata = await response.json();
         console.log('[Freebird] Connected to issuer:', this.metadata.issuer_id);
@@ -106,7 +129,7 @@ export class FreebirdAdapter implements FreebirdClient {
     // Attempt real VOPRF issuance if issuer is available and we have blind state
     if (this.metadata && state) {
       try {
-        const response = await fetch(`${this.issuerUrl}/v1/oprf/issue`, {
+        const response = await this.fetch(`${this.issuerUrl}/v1/oprf/issue`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -154,7 +177,7 @@ export class FreebirdAdapter implements FreebirdClient {
     // Attempt real verification if verifier is available
     if (this.metadata && this.verifierUrl) {
       try {
-        const response = await fetch(`${this.verifierUrl}/v1/verify`, {
+        const response = await this.fetch(`${this.verifierUrl}/v1/verify`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
