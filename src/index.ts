@@ -11,6 +11,7 @@ export { ScarbuckToken } from './token.js';
 export { NullifierGossip } from './gossip.js';
 export { TransferValidator } from './validator.js';
 export { Crypto } from './crypto.js';
+export { FederationBridge } from './bridge.js';
 
 export { FreebirdAdapter } from './integrations/freebird.js';
 export { WitnessAdapter } from './integrations/witness.js';
@@ -24,6 +25,12 @@ export type {
   KeyPair,
   Attestation,
   TransferPackage,
+  SplitPackage,
+  MergePackage,
+  MultiPartyTransfer,
+  HTLCCondition,
+  HTLCPackage,
+  BridgePackage,
   PeerConnection,
   GossipMessage,
   ValidationResult,
@@ -37,6 +44,7 @@ export type {
 export type { ScarbuckTokenConfig } from './token.js';
 export type { ValidatorConfig } from './validator.js';
 export type { GossipConfig } from './gossip.js';
+export type { BridgeConfig } from './bridge.js';
 export type { FreebirdAdapterConfig } from './integrations/freebird.js';
 export type { WitnessAdapterConfig } from './integrations/witness.js';
 export type { HyperTokenAdapterConfig } from './integrations/hypertoken.js';
