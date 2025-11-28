@@ -35,10 +35,17 @@ export async function runGracefulDegradationTest(): Promise<void> {
     const { publicKey } = createTestKeyPair();
     const blinded = await freebird.blind(publicKey);
 
-    runner.assert(blinded.length === 32, 'Blind should return 32 bytes in fallback');
+    runner.assert(
+      blinded.length === 32,
+      `Fallback mode should return 32-byte hash, got ${blinded.length} bytes. ` +
+      `Expected fallback mode with invalid URLs.`
+    );
 
     const token = await freebird.issueToken(blinded);
-    runner.assert(token.length === 32, 'IssueToken should work in fallback');
+    runner.assert(
+      token.length === 32,
+      `Fallback mode should issue 32-byte token, got ${token.length} bytes`
+    );
 
     const valid = await freebird.verifyToken(token);
     runner.assertEquals(valid, true, 'VerifyToken should return true in fallback');
@@ -156,7 +163,21 @@ export async function runGracefulDegradationTest(): Promise<void> {
     const blinded = await freebird.blind(publicKey);
     const attestation = await witness.timestamp('mixed-mode-test');
 
-    runner.assert(blinded.length === 32, 'Blinding should work');
+    // Blinded value can be either:
+    // - 33 bytes (VOPRF mode if localhost:8081 is running)
+    // - 32 bytes (fallback mode if localhost:8081 is not running)
+    const blindedSize = blinded.length;
+    const isVoprfMode = blindedSize === 33;
+    const isFallbackMode = blindedSize === 32;
+
+    runner.assert(
+      isVoprfMode || isFallbackMode,
+      `Blinding should work in either mode: 32 bytes (fallback) or 33 bytes (VOPRF), got ${blindedSize} bytes. ` +
+      `Mode detected: ${isVoprfMode ? 'VOPRF (Freebird available)' : isFallbackMode ? 'Fallback (Freebird unavailable)' : 'Unknown'}`
+    );
+
+    console.log(`  ℹ️  Mixed mode - Freebird: ${isVoprfMode ? 'Connected (VOPRF)' : 'Unavailable (Fallback)'}, Witness: Unavailable (Fallback)`);
+
     runner.assert(attestation.signatures.length > 0, 'Timestamping should work');
   });
 
