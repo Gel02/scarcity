@@ -270,9 +270,13 @@ export async function runSpamMitigationTest(): Promise<void> {
     });
 
     const hash = Crypto.hashString('test-nullifier');
+    console.log(`  → Input hash: ${hash}`);
 
     // This will solve PoW before attempting to timestamp
     const attestation = await witness.timestamp(hash);
+    console.log(`  → Returned hash: ${attestation.hash}`);
+    console.log(`  → Hash type: ${typeof attestation.hash}`);
+    console.log(`  → Hashes equal: ${attestation.hash === hash}`);
 
     // Verify attestation structure (in fallback mode, hash should be preserved)
     runner.assert(attestation.hash != null, 'Attestation should have a hash');
