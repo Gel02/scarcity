@@ -11,7 +11,9 @@ test/
 ├── integration/
 │   ├── 01-basic-transfer.test.ts      # Full token transfer flow
 │   ├── 02-double-spend.test.ts        # Double-spend prevention
-│   └── 03-graceful-degradation.test.ts # Fallback mode testing
+│   ├── 03-graceful-degradation.test.ts # Fallback mode testing
+│   ├── 04-phase3-features.test.ts     # Phase 3 advanced features
+│   └── 05-phase3-cli.test.ts          # Phase 3 CLI operations
 └── run-integration-tests.ts   # Test runner
 ```
 
@@ -29,6 +31,8 @@ npm run test:integration
 npm run test:basic          # Basic token transfer
 npm run test:double-spend   # Double-spend detection
 npm run test:degradation    # Graceful degradation
+npm run test:phase3         # Phase 3 advanced features (API)
+npm run test:phase3-cli     # Phase 3 CLI operations
 ```
 
 ### Run Specific Test
@@ -42,8 +46,8 @@ node test/integration/01-basic-transfer.test.js
 ### 1. Full Stack Mode (All Services Running)
 
 Tests use real infrastructure when available:
-- HyperToken relay server on `ws://localhost:8080`
-- Witness gateway on `http://localhost:8080`
+- HyperToken relay server on `ws://localhost:3000`
+- Witness gateways on `http://localhost:5001` and `http://localhost:5002` (dual gateway for bridge tests)
 - Freebird issuer on `http://localhost:8081`
 - Freebird verifier on `http://localhost:8082`
 
@@ -73,39 +77,44 @@ git clone https://github.com/flammafex/hypertoken
 cd hypertoken
 cat > relay.js << 'EOF'
 import { RelayServer } from './network/RelayServer.js';
-const relay = new RelayServer({ port: 8080, verbose: true });
+const relay = new RelayServer({ port: 3000, verbose: true });
 relay.start();
-console.log('Relay server on ws://localhost:8080');
+console.log('Relay server on ws://localhost:3000');
 EOF
 node relay.js
 ```
 
-#### Step 2: Start Witness Network
+#### Step 2: Start Witness Networks (Dual Gateway for Bridge Tests)
 ```bash
-# Terminal 2
+# Terminal 2 - Source Federation Gateway
 git clone https://github.com/flammafex/witness
 cd witness
 ./examples/setup.sh
-./examples/start.sh
-# Starts 3 witness nodes (3001-3003) + gateway (8080)
+./examples/start.sh --port 5001
+# Starts gateway on port 5001
+
+# Terminal 3 - Target Federation Gateway
+cd witness
+./examples/start.sh --port 5002
+# Starts gateway on port 5002
 ```
 
 #### Step 3: Start Freebird Services
 ```bash
-# Terminal 3 & 4
+# Terminal 4 & 5
 git clone https://github.com/flammafex/freebird
 cd freebird
 
-# Terminal 3: Issuer
+# Terminal 4: Issuer
 docker-compose up issuer
 
-# Terminal 4: Verifier
+# Terminal 5: Verifier
 docker-compose up verifier
 ```
 
 #### Step 4: Run Tests
 ```bash
-# Terminal 5
+# Terminal 6
 cd /path/to/scarcity
 npm test
 ```
@@ -151,6 +160,53 @@ Tests fallback behavior when services are unavailable:
 
 **Expected Result:** All operations work in fallback mode
 
+### 04: Phase 3 Advanced Features
+
+Tests Phase 3 programmatic API for advanced token operations:
+1. ✅ Token splitting (100 → 30, 40, 30)
+2. ✅ Split amount validation (must sum correctly)
+3. ✅ Token merging (3 tokens → 1)
+4. ✅ Receiving split tokens
+5. ✅ Receiving merged token
+6. ✅ Multi-party transfer (atomic distribution)
+7. ✅ Receiving from multi-party transfer
+8. ✅ Hash-locked HTLC creation
+9. ✅ HTLC claim with wrong preimage (rejection)
+10. ✅ Time-locked HTLC creation
+11. ✅ Cross-federation bridge transfer
+
+**Expected Result:** All 13 tests pass
+
+**Requirements:**
+- Dual Witness gateways on ports 5001 and 5002
+- Freebird issuer/verifier (8081/8082)
+- HyperToken relay (3000)
+
+### 05: Phase 3 CLI Operations
+
+Tests CLI commands for Phase 3 operations with wallet and token storage:
+1. ✅ Wallet initialization
+2. ✅ Token minting via CLI
+3. ✅ CLI split command
+4. ✅ CLI merge command
+5. ✅ CLI multi-party transfer
+6. ✅ CLI hash-locked HTLC creation
+7. ✅ CLI HTLC claim with preimage
+8. ✅ CLI time-locked HTLC creation
+9. ✅ CLI HTLC refund after expiry
+10. ✅ CLI bridge transfer
+11. ✅ Package JSON serialization
+12. ✅ Token storage queries
+13. ✅ Cleanup
+
+**Expected Result:** All 13 tests pass
+
+**Requirements:**
+- Dual Witness gateways on ports 5001 and 5002
+- Freebird issuer/verifier (8081/8082)
+
+**Note:** CLI tests use temporary directories and clean up automatically
+
 ## Test Output
 
 ### Successful Run
@@ -180,10 +236,12 @@ FINAL RESULTS
 ✅ Graceful Degradation
 ✅ Basic Token Transfer
 ✅ Double-Spend Detection
+✅ Phase 3 Advanced Features
+✅ Phase 3 CLI Operations
 
 ────────────────────────────────────────────────────────────
-Total Suites: 3
-Passed: 3
+Total Suites: 5
+Passed: 5
 Failed: 0
 Pass Rate: 100.0%
 ────────────────────────────────────────────────────────────
@@ -257,4 +315,6 @@ export async function runMyTest(): Promise<void> {
 - Add stress tests with many peers
 - Add network partition simulation
 - Add Byzantine fault injection
-- Add CLI for interactive testing
+- ~~Add CLI for interactive testing~~ ✅ **DONE** (Phase 3 CLI operations)
+- Add end-to-end CLI workflow tests
+- Add CLI error handling tests
