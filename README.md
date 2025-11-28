@@ -1,7 +1,3 @@
-<<<<<<< HEAD
-# ![🧩 Scarcity](scarcity.webp)
-
-=======
 <div align=center><img src="scarcity.webp"></div>
 >>>>>>> e2fb2463deafb1755ff5660830dd6e6a849cbb50
 <div align=center><img src="church.png" width=72 height=72>
