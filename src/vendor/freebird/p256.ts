@@ -73,6 +73,34 @@ export function invertScalar(scalar: bigint): bigint {
   return pow(scalar, N - 2n, N);
 }
 
+/**
+ * Modular multiplication: (a * b) mod N
+ */
+export function modMul(a: bigint, b: bigint): bigint {
+  return mod(a * b, N);
+}
+
+/**
+ * Modular subtraction: (a - b) mod N
+ */
+export function modSub(a: bigint, b: bigint): bigint {
+  return mod(a - b, N);
+}
+
+/**
+ * Modular addition: (a + b) mod N
+ */
+export function modAdd(a: bigint, b: bigint): bigint {
+  return mod(a + b, N);
+}
+
+/**
+ * Get the curve order N (used for scalar field operations)
+ */
+export function getCurveOrder(): bigint {
+  return N;
+}
+
 // ============================================================================
 // 3. Internal Math & Hashing (Fully Self-Contained)
 // ============================================================================

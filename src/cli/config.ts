@@ -15,7 +15,7 @@ export interface ScarcityConfig {
     networkId: string;
   };
   freebird: {
-    issuerUrl: string;
+    issuerEndpoints: string[];
     verifierUrl: string;
   };
   hypertoken: {
@@ -35,7 +35,7 @@ export const DEFAULT_CONFIG: ScarcityConfig = {
     networkId: 'scarcity-testnet'
   },
   freebird: {
-    issuerUrl: 'http://localhost:8081',
+    issuerEndpoints: ['http://localhost:8081'],
     verifierUrl: 'http://localhost:8082'
   },
   hypertoken: {
@@ -172,7 +172,7 @@ export class ConfigManager {
    */
   getFreebirdConfig() {
     return {
-      issuerUrl: this.config.freebird.issuerUrl,
+      issuerEndpoints: this.config.freebird.issuerEndpoints,
       verifierUrl: this.config.freebird.verifierUrl,
       tor: this.config.tor.enabled ? {
         proxyHost: this.config.tor.proxyHost,

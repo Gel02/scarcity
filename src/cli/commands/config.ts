@@ -63,7 +63,10 @@ export class ConfigCommand extends Command {
     console.log(`  Network ID:  ${cfg.witness.networkId}`);
     console.log('');
     console.log('Freebird:');
-    console.log(`  Issuer URL:   ${cfg.freebird.issuerUrl}`);
+    console.log(`  Issuer Endpoints:`);
+    cfg.freebird.issuerEndpoints.forEach((url, i) => {
+      console.log(`    [${i + 1}] ${url}`);
+    });
     console.log(`  Verifier URL: ${cfg.freebird.verifierUrl}`);
     console.log('');
     console.log('HyperToken:');
