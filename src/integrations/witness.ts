@@ -124,7 +124,9 @@ export class WitnessAdapter implements WitnessClient {
 
           return {
             hash: data.attestation?.attestation?.hash || hash,
-            timestamp: data.attestation?.attestation?.timestamp || Date.now(),
+            timestamp: data.attestation?.attestation?.timestamp
+              ? data.attestation.attestation.timestamp * 1000  // Convert seconds to milliseconds
+              : Date.now(),
             signatures,
             witnessIds,
             raw: data.attestation  // Store original SignedAttestation for verification
@@ -422,7 +424,9 @@ export class WitnessAdapter implements WitnessClient {
 
           return {
             hash: data.attestation?.attestation?.hash || hash,
-            timestamp: data.attestation?.attestation?.timestamp || Date.now(),
+            timestamp: data.attestation?.attestation?.timestamp
+              ? data.attestation.attestation.timestamp * 1000  // Convert seconds to milliseconds
+              : Date.now(),
             signatures: data.attestation?.signatures?.map((sig: any) =>
               typeof sig.signature === 'string' ? sig.signature : JSON.stringify(sig.signature)
             ) || [],
