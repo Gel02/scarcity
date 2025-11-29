@@ -32,6 +32,8 @@ Scarcity refuses all three. It's designed from first principles with these const
 - **[HyperToken](https://github.com/flammafex/hypertoken)**: Distributed state synchronization
 - **[Witness](https://github.com/flammafex/witness)**: Threshold signature timestamping
 
+  Are you getting it?
+
 ---
 
 ## Environmental Impact
