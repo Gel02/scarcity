@@ -73,7 +73,7 @@ Instead of a global ledger, Scarcity uses:
 
 ## Economic Model: Lazy Demurrage
 
-Scarcity implements a novel economic primitive we call **Lazy Demurrage**—a system where currency behaves less like immutable gold and more like metabolic energy.
+Scarcity implements a novel economic primitive The Church calls **Lazy Demurrage**—a system where currency behaves less like immutable gold and more like metabolic energy.
 
 By enforcing a **Rolling Validity Window** (default ~1.5 years), Scarcity creates a high-velocity economy that automatically prunes dead capital. This mechanism draws on three historical and biological precedents:
 
