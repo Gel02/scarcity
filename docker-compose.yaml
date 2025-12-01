@@ -1,0 +1,135 @@
+services:
+  # ============================================================================
+  # SCARCITY
+  # ============================================================================
+  scarcity-tests:
+    build: .
+    depends_on:
+      freebird-verifier:
+        condition: service_started
+      witness-gateway:
+        condition: service_started
+      hypertoken-relay:
+        condition: service_started
+    environment:
+      - FREEBIRD_ISSUER_URL=http://freebird-issuer:8081
+      - FREEBIRD_VERIFIER_URL=http://freebird-verifier:8082
+      - WITNESS_GATEWAY_URL=http://witness-gateway:8080
+      - HYPERTOKEN_RELAY_URL=ws://hypertoken-relay:8080
+    # Wait for all services to be reachable before running tests
+    command: >
+      sh -c "
+        echo '⏳ Waiting for services...' &&
+        while ! nc -z freebird-issuer 8081; do sleep 1; done &&
+        while ! nc -z freebird-verifier 8082; do sleep 1; done &&
+        while ! nc -z witness-gateway 8080; do sleep 1; done &&
+        while ! nc -z hypertoken-relay 8080; do sleep 1; done &&
+        echo '✅ Services up! Running tests...' &&
+        npm test
+      "
+
+  # ============================================================================
+  # FREEBIRD CLUSTER
+  # ============================================================================
+  freebird-issuer:
+    build: 
+      context: https://github.com/flammafex/freebird.git
+      target: issuer
+    ports:
+      - "8081:8081"
+    environment:
+      - ISSUER_ID=issuer:docker:v1
+      - BIND_ADDR=0.0.0.0:8081
+      - SYBIL_RESISTANCE=invitation
+      - ADMIN_API_KEY=dev-admin-key-must-be-at-least-32-characters-long
+      - ISSUER_SK_PATH=/tmp/issuer_sk.bin
+      - KEY_ROTATION_STATE_PATH=/tmp/key_state.json
+      - SYBIL_INVITE_PERSISTENCE_PATH=/tmp/invitations.json
+      - SYBIL_INVITE_BOOTSTRAP_USERS=admin:100
+
+  freebird-verifier:
+    build: 
+      context: https://github.com/flammafex/freebird.git
+      target: verifier
+    ports:
+      - "8082:8082"
+    depends_on:
+      - freebird-redis
+    environment:
+      - BIND_ADDR=0.0.0.0:8082
+      - ISSUER_URL=http://freebird-issuer:8081/.well-known/issuer
+      - REDIS_URL=redis://freebird-redis:6379
+
+  freebird-redis:
+    image: redis:alpine
+
+  # ============================================================================
+  # WITNESS CLUSTER
+  # ============================================================================
+  witness-setup:
+    build:
+      context: https://github.com/flammafex/witness.git
+      target: witness-node
+    volumes:
+      - witness-config:/data
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        if [ -f /data/network.json ]; then exit 0; fi
+        PUB1=$$(witness-node --generate-key | grep Public | awk '{print $$3}')
+        PRIV1=$$(witness-node --generate-key | grep Private | awk '{print $$3}')
+        echo "{\"id\":\"w1\",\"private_key\":\"$$PRIV1\",\"port\":3000,\"network_id\":\"docker\",\"max_clock_skew\":300}" > /data/w1.json
+        echo "{\"id\":\"docker\",\"threshold\":1,\"witnesses\":[{\"id\":\"w1\",\"pubkey\":\"$$PUB1\",\"endpoint\":\"http://witness-1:3000\"}],\"federation_peers\":[],\"external_anchors\":{\"enabled\":false,\"providers\":[]}}" > /data/network.json
+
+  witness-1:
+    build:
+      context: https://github.com/flammafex/witness.git
+      target: witness-node
+    depends_on:
+      witness-setup:
+        condition: service_completed_successfully
+    volumes:
+      - witness-config:/data
+    command: ["witness-node", "--config", "/data/w1.json"]
+
+  witness-gateway:
+    build:
+      context: https://github.com/flammafex/witness.git
+      target: witness-gateway
+    ports:
+      - "8080:8080"
+    depends_on:
+      witness-setup:
+        condition: service_completed_successfully
+      witness-1:
+        condition: service_started
+    volumes:
+      - witness-config:/config
+    environment:
+      - RUST_LOG=info
+    command: ["witness-gateway", "--config", "/config/network.json", "--database", ":memory:"]
+
+  # ============================================================================
+  # HYPERTOKEN RELAY
+  # ============================================================================
+  # Uses the start-relay.js from the root of the repo
+  hypertoken-relay:
+    build:
+      context: https://github.com/flammafex/hypertoken.git
+      dockerfile_inline: |
+        FROM node:20-alpine
+        WORKDIR /app
+        COPY package*.json ./
+        RUN npm install
+        COPY . .
+        # Build TypeScript to dist/
+        RUN npm run build
+        EXPOSE 8080
+        # Use the root startup script
+        # Pass 8080 to override the default port 3000
+        CMD ["node", "start-relay.js", "8080"]
+    ports:
+      - "3000:8080"
+
+volumes:
+  witness-config:
