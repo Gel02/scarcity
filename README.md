@@ -2,7 +2,7 @@
 <div align=center><img src="scarbucks.webp"></div>
 
 <div align=center><img src="church.png" width=72 height=72>
-_A mission of [The Carpocratian Church of Commonality and Equality](https://carpocratian.org/)_</div>
+A mission of [The Carpocratian Church of Commonality and Equality](https://carpocratian.org/)_</div>
 
 <div align=center><img src="mission.png" width=256 height=200></div>
 
