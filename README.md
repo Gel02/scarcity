@@ -263,6 +263,31 @@ For detailed information on the vulnerability, attack vectors, and mitigation st
 📖 **[SECURITY.md](SECURITY.md)** - Complete security documentation with configuration examples and attack cost analysis.
 
 ---
+## ⚡ Quick Start (Docker)
+
+Run the entire Scarcity ecosystem (Freebird, Witness, HyperToken) and integration tests with a single command. No manual setup required.
+
+### 1. Run Everything
+This command builds Scarcity, pulls the latest dependencies (Freebird/Witness), starts the p2p network, and runs the integration suite.
+
+```bash
+docker compose up --build --abort-on-container-exit
+```
+
+### 2. Interactive Development
+To run the infrastructure in the background and execute CLI commands manually:
+
+```bash
+# Start infrastructure (Freebird, Witness, Relay) in background
+docker compose up -d freebird-issuer freebird-verifier witness-gateway hypertoken-relay
+
+# Run the CLI against the local docker network
+docker compose run --rm scarcity-tests ./dist/src/cli/index.js wallet list
+```
+
+For detailed deployment scenarios, see [QUICKSTART.md](QUICKSTART.md).
+
+---
 
 ## Integration with Privacy Stack
 
