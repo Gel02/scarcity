@@ -91,6 +91,11 @@ export class NullifierGossip {
     };
 
     await this.broadcast(message);
+
+    // Notify local receiveHandler (so collectors in same process can see it)
+    if (this.receiveHandler) {
+      await this.receiveHandler(message);
+    }
   }
 
   /**
