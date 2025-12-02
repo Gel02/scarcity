@@ -79,6 +79,11 @@ export class TokenCommand extends Command {
       }
     } finally {
       await infraManager.cleanup();
+
+      // Force exit after cleanup to prevent hanging
+      setTimeout(() => {
+        process.exit(0);
+      }, 100);
     }
   }
 

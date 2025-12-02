@@ -87,7 +87,11 @@ export class InfrastructureManager {
   async cleanup(): Promise<void> {
     if (this.infrastructure) {
       try {
-        await this.infrastructure.hypertoken.disconnect();
+        // Add timeout to prevent hanging
+        const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 2000));
+        const disconnectPromise = this.infrastructure.hypertoken.disconnect();
+
+        await Promise.race([disconnectPromise, timeoutPromise]);
       } catch (error) {
         // Ignore cleanup errors
       }
