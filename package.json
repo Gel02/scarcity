@@ -1,6 +1,6 @@
 {
   "name": "scarcity",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Privacy-preserving P2P value transfer protocol with gossip-based double-spend prevention",
   "type": "module",
   "main": "dist/index.js",
