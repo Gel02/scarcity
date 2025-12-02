@@ -291,8 +291,86 @@ git clone https://github.com/flammafex/freebird
 git clone https://github.com/flammafex/witness
 git clone https://github.com/flammafex/hypertoken
 
-# Update docker-compose.yml to use local builds
+# Update docker-compose.yaml to use local builds
 ```
+
+---
+
+### ❌ HyperToken Relay build fails with "Cannot find module 'prompts'" or similar TypeScript errors
+
+**Problem:** The HyperToken repository's monorepo workspace dependencies aren't fully installed during Docker build.
+
+**Error message:**
+```
+error TS2307: Cannot find module 'prompts' or its corresponding type declarations.
+error TS2307: Cannot find module 'chalk' or its corresponding type declarations.
+```
+
+**This is a known issue with the upstream HyperToken repository.**
+
+**Solution: Fix the docker-compose.yaml inline Dockerfile**
+
+Edit `docker-compose.yaml` and replace the `hypertoken-relay` service configuration:
+
+```yaml
+hypertoken-relay:
+  build:
+    context: https://github.com/flammafex/hypertoken.git
+    dockerfile_inline: |
+      FROM node:20-alpine
+      WORKDIR /app
+      COPY package*.json ./
+      # Install root dependencies first
+      RUN npm install
+      # Copy all workspace package.json files
+      COPY packages/*/package*.json ./packages/
+      # Install workspace dependencies
+      RUN npm install --workspaces
+      # Now copy the rest of the code
+      COPY . .
+      # Build only the relay (skip quickstart to avoid missing deps)
+      RUN npx tsc -p packages/relay/tsconfig.json || npm run build --workspace=hypertoken-relay
+      EXPOSE 8080
+      CMD ["node", "start-relay.js", "8080"]
+  ports:
+    - "3000:8080"
+```
+
+**Alternative: Use a simpler single-workspace build**
+
+Replace with this minimal configuration that skips the problematic quickstart package:
+
+```yaml
+hypertoken-relay:
+  build:
+    context: https://github.com/flammafex/hypertoken.git
+    dockerfile_inline: |
+      FROM node:20-alpine
+      WORKDIR /app
+      COPY package*.json ./
+      RUN npm install --ignore-scripts
+      COPY . .
+      # Build only what's needed for the relay
+      RUN cd packages/relay && npm install && npx tsc || true
+      EXPOSE 8080
+      CMD ["node", "start-relay.js", "8080"]
+  ports:
+    - "3000:8080"
+```
+
+**Quick workaround: Skip HyperToken and run in simulation mode**
+
+If you just want to test Scarcity without HyperToken relay:
+
+```bash
+# Start only Freebird and Witness
+docker compose up -d freebird-issuer freebird-verifier witness-gateway
+
+# Run tests (will use simulation mode for HyperToken)
+npm test
+```
+
+Scarcity is designed to work with graceful degradation - the tests will pass even without HyperToken relay.
 
 ---
 
