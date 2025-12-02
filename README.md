@@ -1493,7 +1493,7 @@ Tests gracefully degrade to fallback mode, demonstrating resilience:
 
 **Phase 4: Tooling** 🔨 **IN PROGRESS** (3/4 complete, 75%)
 - [x] Web wallet interface ✅ **COMPLETE**
-- [ ] Mobile SDK (React Native)
+- [ ] Mobile SDK (React Native) 📱 **[ROADMAP](docs/MOBILE_SDK_ROADMAP.md)**
 - [x] CLI tools for Phase 3 operations ✅ **COMPLETE** (split, merge, multiparty, HTLC, bridge)
 - [x] Nullscape Explorer (nullifier viewer) ✅ **COMPLETE**
 
