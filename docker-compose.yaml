@@ -66,10 +66,13 @@ services:
   # ============================================================================
   # WITNESS CLUSTER
   # ============================================================================
+  # Note: Using newer Rust 1.85+ to support edition2024 features required by dependencies
   witness-setup:
     build:
       context: https://github.com/flammafex/witness.git
       target: witness-node
+      args:
+        RUST_VERSION: "1.85"
     volumes:
       - witness-config:/data
     entrypoint: ["/bin/bash", "-c"]
@@ -85,6 +88,8 @@ services:
     build:
       context: https://github.com/flammafex/witness.git
       target: witness-node
+      args:
+        RUST_VERSION: "1.85"
     depends_on:
       witness-setup:
         condition: service_completed_successfully
@@ -96,6 +101,8 @@ services:
     build:
       context: https://github.com/flammafex/witness.git
       target: witness-gateway
+      args:
+        RUST_VERSION: "1.85"
     ports:
       - "8080:8080"
     depends_on:
