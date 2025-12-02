@@ -1224,6 +1224,107 @@ See [src/web/README.md](src/web/README.md) for complete documentation.
 
 ---
 
+## Nullscape Explorer
+
+Real-time nullifier feed and network transparency tool for monitoring the Scarcity network.
+
+### Quick Start
+
+```bash
+# Start the explorer
+npm run explorer
+
+# Open in browser
+open http://localhost:3001
+```
+
+The Nullscape Explorer provides:
+- **Real-time nullifier feed**: Live WebSocket updates as nullifiers propagate
+- **Persistent storage**: SQLite database for historical records
+- **Search & query**: Find nullifiers by hex, token ID, or federation
+- **Network statistics**: Activity metrics, peer counts, witness depth
+- **Activity charts**: Visual timeline of network activity
+- **Dark theme UI**: Modern monitoring interface
+
+### Features
+
+**Real-Time Monitoring:**
+- WebSocket feed of new nullifiers
+- Live network statistics
+- Instant search and filtering
+
+**Historical Analysis:**
+- Persistent SQLite storage
+- 24-hour activity charts
+- Per-federation statistics
+- Nullifier count trends
+
+**Network Transparency:**
+- Double-spend detection visibility
+- Peer count tracking
+- Witness depth monitoring
+- Federation activity comparison
+
+### Usage Flow
+
+1. **Start Collecting**: Click "Start Collecting" to monitor the network
+2. **View Feed**: Watch nullifiers appear in real-time
+3. **Inspect Details**: Click any nullifier for full proof details
+4. **Search**: Find specific nullifiers by hex
+5. **Analyze**: Check activity charts and federation stats
+
+### API Endpoints
+
+The explorer provides a REST API at `http://localhost:3001/api`:
+
+```bash
+# Get network statistics
+GET /api/stats
+
+# Recent nullifiers (paginated)
+GET /api/nullifiers?limit=50&offset=0
+
+# Search by hex
+GET /api/nullifiers/search?q=<hex>
+
+# Hourly activity chart data
+GET /api/activity/hourly
+
+# Federation statistics
+GET /api/federations/stats
+```
+
+### Configuration
+
+The explorer uses the same infrastructure config as the CLI:
+- Config: `~/.scarcity/config.json`
+- Database: `~/.scarcity/explorer.db`
+
+### Custom Port
+
+```bash
+# Run on custom port
+PORT=8080 npm run explorer
+```
+
+### Privacy Considerations
+
+**What's Public in Nullscape:**
+- Nullifiers (spent token markers)
+- Witness proofs and timestamps
+- Peer counts and network metrics
+
+**What Remains Private:**
+- Sender/recipient identities (Freebird anonymity preserved)
+- Token amounts (not stored in nullifiers)
+- Transaction linkability (nullifiers are unlinkable)
+
+Nullscape provides transparency without compromising core privacy guarantees.
+
+See [src/explorer/README.md](src/explorer/README.md) for complete documentation.
+
+---
+
 ## Performance Characteristics
 
 ### Latency
@@ -1389,11 +1490,11 @@ Tests gracefully degrade to fallback mode, demonstrating resilience:
 - [x] Conditional payments (HTLCs) ✅ **COMPLETE**
 - [x] Cross-federation bridging ✅ **COMPLETE**
 
-**Phase 4: Tooling** 🔨 **IN PROGRESS** (2/4 complete, 50%)
+**Phase 4: Tooling** 🔨 **IN PROGRESS** (3/4 complete, 75%)
 - [x] Web wallet interface ✅ **COMPLETE**
 - [ ] Mobile SDK (React Native)
 - [x] CLI tools for Phase 3 operations ✅ **COMPLETE** (split, merge, multiparty, HTLC, bridge)
-- [ ] Block explorer (nullifier viewer)
+- [x] Nullscape Explorer (nullifier viewer) ✅ **COMPLETE**
 
 ---
 
