@@ -47,8 +47,8 @@ export async function runPhase3CLITests(): Promise<any> {
   });
 
   const witness = new WitnessAdapter({
-    gatewayUrl: 'http://localhost:8080',
-    networkId: 'test-network'
+    gatewayUrl: 'http://localhost:5001',
+    networkId: 'gateway-1'
   });
 
   const hypertoken = new HyperTokenAdapter({
@@ -409,7 +409,7 @@ export async function runPhase3CLITests(): Promise<any> {
     // Setup target federation (separate gateway for cross-federation testing)
     const targetWitness = new WitnessAdapter({
       gatewayUrl: 'http://localhost:5002',
-      networkId: 'test-network-2'
+      networkId: 'gateway-2'
     });
 
     const targetGossip = new NullifierGossip({
@@ -417,8 +417,8 @@ export async function runPhase3CLITests(): Promise<any> {
     });
 
     const bridge = new FederationBridge({
-      sourceFederation: 'test-network',
-      targetFederation: 'test-network-2',
+      sourceFederation: 'gateway-1',
+      targetFederation: 'gateway-2',
       sourceWitness: witness,
       targetWitness,
       sourceGossip: gossip,
@@ -442,8 +442,8 @@ export async function runPhase3CLITests(): Promise<any> {
     // Bridge token
     bridgePackage = await bridge.bridgeToken(aliceToken, bob);
 
-    runner.assertEquals(bridgePackage.sourceFederation, 'test-network', 'Source federation should match');
-    runner.assertEquals(bridgePackage.targetFederation, 'test-network-2', 'Target federation should match');
+    runner.assertEquals(bridgePackage.sourceFederation, 'gateway-1', 'Source federation should match');
+    runner.assertEquals(bridgePackage.targetFederation, 'gateway-2', 'Target federation should match');
     runner.assertEquals(bridgePackage.amount, aliceTokens[0].amount, 'Amount should match');
 
     // Mark as spent
@@ -484,7 +484,7 @@ export async function runPhase3CLITests(): Promise<any> {
 
     const parsedBridge = JSON.parse(bridgeJson);
     runner.assertEquals(parsedBridge.type, 'bridge', 'Bridge type should be preserved');
-    runner.assertEquals(parsedBridge.sourceFederation, 'test-network', 'Source federation should be preserved');
+    runner.assertEquals(parsedBridge.sourceFederation, 'gateway-1', 'Source federation should be preserved');
   });
 
   // Test 10: Token Storage Queries

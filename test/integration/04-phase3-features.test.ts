@@ -37,8 +37,8 @@ export async function runPhase3Tests(): Promise<any> {
   });
 
   const witness = new WitnessAdapter({
-    gatewayUrl: 'http://localhost:8080',
-    networkId: 'test-network'
+    gatewayUrl: 'http://localhost:5001',
+    networkId: 'gateway1-network'
   });
 
   const hypertoken = new HyperTokenAdapter({
