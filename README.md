@@ -301,11 +301,13 @@ For detailed information on the vulnerability, attack vectors, and mitigation st
 ### Network Requirements
 
 - **Ports Used:**
-  - `3000`: Web Wallet UI
+  - `3000`: HyperToken Relay WebSocket (Docker) / Web Wallet UI (Local)
   - `3001`: Nullscape Explorer
-  - `8080`: Witness Gateway / HyperToken Relay (Docker)
+  - `8080`: Witness Gateway HTTP (Docker)
   - `8081`: Freebird Issuer (Docker)
   - `8082`: Freebird Verifier (Docker)
+
+**Note:** When running both Docker services and local Web Wallet, port 3000 will be used by HyperToken Relay. Run the Web Wallet on a different port: `PORT=3333 npm run web`
 
 ### Optional Dependencies
 
