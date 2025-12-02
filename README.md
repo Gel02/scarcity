@@ -266,6 +266,147 @@ For detailed information on the vulnerability, attack vectors, and mitigation st
 📖 **[SECURITY.md](SECURITY.md)** - Complete security documentation with configuration examples and attack cost analysis.
 
 ---
+
+## 📋 System Requirements
+
+### Required Software
+
+**For Docker Setup (Recommended):**
+- Docker Engine 20.10+ or Docker Desktop
+- Docker Compose V2
+- 2GB+ RAM available
+- 1GB+ disk space
+
+**For Local Development:**
+- Node.js 20+ (LTS recommended)
+- npm 9+ (comes with Node.js)
+- Git
+- 2GB+ RAM available
+- 500MB+ disk space
+
+**For Building from Source:**
+- All Local Development requirements
+- Python 3.x (for native module compilation)
+- C++ compiler toolchain:
+  - **Linux**: `build-essential` package (gcc, g++, make)
+  - **macOS**: Xcode Command Line Tools (`xcode-select --install`)
+  - **Windows**: Visual Studio Build Tools or Windows Build Tools
+
+### Supported Platforms
+
+- ✅ **Linux** (Ubuntu 20.04+, Debian 11+, Fedora 35+, Arch)
+- ✅ **macOS** (11+ Big Sur or newer)
+- ✅ **Windows** (10/11 with WSL2 recommended for Docker)
+
+### Network Requirements
+
+- **Ports Used:**
+  - `3000`: Web Wallet UI
+  - `3001`: Nullscape Explorer
+  - `8080`: Witness Gateway / HyperToken Relay (Docker)
+  - `8081`: Freebird Issuer (Docker)
+  - `8082`: Freebird Verifier (Docker)
+
+### Optional Dependencies
+
+- **Tor** (for anonymous networking): `tor` package installed and running on port 9050
+- **SQLite3** CLI tools (for manual database inspection)
+
+---
+
+## 🚀 First Time Setup Checklist
+
+Follow these steps to get Scarcity running on your machine:
+
+### Option 1: Docker Setup (5-10 minutes) ⭐ Recommended
+
+- [ ] **Install Docker Desktop** or Docker Engine + Docker Compose
+- [ ] **Clone the repository:**
+  ```bash
+  git clone https://github.com/flammafex/scarcity.git
+  cd scarcity
+  ```
+- [ ] **Run the entire stack:**
+  ```bash
+  docker compose up --build --abort-on-container-exit
+  ```
+- [ ] **Verify success** - You should see test output ending with "All tests passed! ✓"
+- [ ] **Try the CLI:**
+  ```bash
+  docker compose run --rm scarcity-tests ./dist/src/cli/index.js wallet list
+  ```
+
+**That's it!** Docker handles all dependencies, networking, and configuration automatically.
+
+### Option 2: Local Development (30-60 minutes)
+
+- [ ] **Install Node.js 20+** from [nodejs.org](https://nodejs.org/)
+- [ ] **Verify installation:**
+  ```bash
+  node --version  # Should show v20.x.x or higher
+  npm --version   # Should show 9.x.x or higher
+  ```
+- [ ] **Install build tools** (for native dependencies):
+  - **Linux**: `sudo apt install build-essential` (Ubuntu/Debian) or equivalent
+  - **macOS**: `xcode-select --install`
+  - **Windows**: Install Visual Studio Build Tools
+- [ ] **Clone the repository:**
+  ```bash
+  git clone https://github.com/flammafex/scarcity.git
+  cd scarcity
+  ```
+- [ ] **Install dependencies:**
+  ```bash
+  npm install
+  ```
+  - ⚠️ If `better-sqlite3` fails to build, ensure you have C++ build tools installed
+- [ ] **Build the project:**
+  ```bash
+  npm run build
+  ```
+- [ ] **Run tests (simulation mode):**
+  ```bash
+  npm test
+  ```
+  - Tests work WITHOUT external services in simulation mode
+  - You should see "All tests passed! ✓"
+- [ ] **Optional: Set up external services** (for full functionality):
+  ```bash
+  # Start infrastructure with Docker
+  docker compose up -d freebird-issuer freebird-verifier witness-gateway hypertoken-relay
+
+  # Or set up each service manually (advanced - see QUICKSTART.md)
+  ```
+- [ ] **Try the CLI:**
+  ```bash
+  ./dist/src/cli/index.js wallet create alice
+  ./dist/src/cli/index.js wallet list
+  ```
+- [ ] **Optional: Install CLI globally:**
+  ```bash
+  npm install -g .
+  scar wallet list
+  ```
+
+### Option 3: Web Wallet / Explorer (After completing Option 1 or 2)
+
+- [ ] **Start the Web Wallet:**
+  ```bash
+  npm run web
+  # Opens on http://localhost:3000
+  ```
+- [ ] **Start the Nullscape Explorer:**
+  ```bash
+  npm run explorer
+  # Opens on http://localhost:3001
+  ```
+
+### Troubleshooting
+
+If you encounter issues, see **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)** for common problems and solutions.
+
+---
+
 ## ⚡ Quick Start (Docker)
 
 Run the entire Scarcity ecosystem (Freebird, Witness, HyperToken) and integration tests with a single command. No manual setup required.
