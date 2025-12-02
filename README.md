@@ -6,7 +6,7 @@
 <div align=center>A mission of <a href="https://carpocratian.org">The Carpocratian Church of Commonality and Equality</a></div>
 
 <div align=center><img src="mission.png" width=256 height=200></div>
-<div align=center><h1>Now featuring Nullscape Explorer <img src="nullscape.webp"></h1></div>
+<div align=center><h1>Now featuring Nullscape Explorer <img src="nullscape.webp" width=72 height=72></h1></div>
 
 
 # SAY 'HELLO, WORLD' TO MY LITTLE FRIEND
