@@ -209,7 +209,15 @@ docker ps
 
 ### ❌ "Port already in use" error with Docker Compose
 
-**Problem:** Ports 3000, 3001, 8080, 8081, or 8082 are already occupied.
+**Problem:** Docker services need specific ports that are already occupied.
+
+**Ports used by Scarcity Docker services:**
+- `3000`: HyperToken Relay (WebSocket)
+- `8080`: Witness Gateway (HTTP)
+- `8081`: Freebird Issuer
+- `8082`: Freebird Verifier
+
+**Note:** Port 3001 is used by Nullscape Explorer when run locally, not by Docker services.
 
 **Solution:**
 
@@ -226,13 +234,13 @@ netstat -ano | findstr :3000
 # Kill the process or stop the conflicting service
 ```
 
-**Option 2: Change ports in docker-compose.yml**
+**Option 2: Change ports in docker-compose.yaml**
 ```yaml
-# Edit docker-compose.yml
+# Edit docker-compose.yaml
 services:
-  scarcity-web:
+  hypertoken-relay:
     ports:
-      - "3333:3000"  # Use port 3333 instead
+      - "3333:8080"  # Use host port 3333 instead of 3000
 ```
 
 **Option 3: Use random ports**
