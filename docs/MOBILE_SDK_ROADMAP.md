@@ -263,15 +263,24 @@ The SDK will expose the same functionality as the CLI and Web Wallet:
 1. **Adapt FreebirdAdapter:**
    - Port `src/integrations/freebird.ts`
    - Use native `fetch()` API (available in React Native)
-   - **Remove Tor support** (SOCKS5 proxies not available on mobile)
-   - Rely on HTTPS for privacy
+   - **Add Tor support** (optional, disabled by default)
+   - Integrate with Orbot on Android or custom SOCKS proxy
+   - Fallback to HTTPS when Tor unavailable
    ```typescript
    export class MobileFreebirdAdapter implements Freebird {
+     private useTor: boolean = false;
+     private torProxy?: string;
+
      async blind(message: Uint8Array): Promise<BlindedToken> {
+       const fetchOptions = this.useTor
+         ? { agent: await this.getTorAgent() }
+         : {};
+
        const response = await fetch(`${this.issuerUrl}/blind`, {
          method: 'POST',
          headers: { 'Content-Type': 'application/json' },
-         body: JSON.stringify({ message: toHex(message) })
+         body: JSON.stringify({ message: toHex(message) }),
+         ...fetchOptions
        });
        // ... rest of VOPRF protocol
      }
@@ -283,14 +292,34 @@ The SDK will expose the same functionality as the CLI and Web Wallet:
    - Use native `fetch()` for HTTP requests
    - Support quorum witness configurations
    - Handle network errors gracefully (mobile connections are flaky)
+   - Optional Tor support for witness requests
 
-3. **Create Mobile Network Manager:**
+3. **Implement Tor Integration:**
+   - Detect Orbot installation on Android
+   - Provide configuration for custom SOCKS proxy
+   - Graceful fallback when Tor unavailable
+   - Add user setting to enable/disable Tor
+   ```typescript
+   export class TorManager {
+     async isOrbotInstalled(): Promise<boolean> {
+       // Check for Orbot on Android
+     }
+
+     async connectToTor(proxy?: string): Promise<boolean> {
+       // Connect to Orbot or custom SOCKS proxy
+     }
+   }
+   ```
+
+4. **Create Mobile Network Manager:**
    - Monitor network state (WiFi, cellular, offline)
    - Implement request retry logic with exponential backoff
    - Queue operations when offline, sync when back online
+   - Handle Tor connection failures
    ```typescript
    export class NetworkManager {
      private isOnline: boolean = true;
+     private useTor: boolean = false;
      private pendingRequests: Queue<Request> = new Queue();
 
      async fetch(url: string, init?: RequestInit): Promise<Response> {
@@ -298,6 +327,12 @@ The SDK will expose the same functionality as the CLI and Web Wallet:
          await this.pendingRequests.enqueue({ url, init });
          throw new Error('Offline - request queued');
        }
+
+       if (this.useTor && !await this.torManager.isConnected()) {
+         console.warn('Tor unavailable, falling back to HTTPS');
+         this.useTor = false;
+       }
+
        return fetch(url, init);
      }
    }
@@ -306,9 +341,11 @@ The SDK will expose the same functionality as the CLI and Web Wallet:
 **Key Deliverables:**
 - [ ] Freebird blinding working on mobile
 - [ ] Witness timestamping working on mobile
+- [ ] Optional Tor support via Orbot/SOCKS proxy
 - [ ] Network state monitoring
 - [ ] Offline request queuing
 - [ ] Adaptive retry logic for flaky connections
+- [ ] Graceful Tor fallback to HTTPS
 
 **Testing:**
 - Test on WiFi, cellular (4G/5G), and airplane mode
@@ -473,6 +510,25 @@ const sdk = await ScarcitySDK.initialize({
   gossip: {
     mode: 'balanced', // realtime | balanced | battery | offline
     peers: 3
+  },
+  network: {
+    tor: {
+      enabled: false,  // Optional Tor support (default: false)
+      proxy: 'socks5://127.0.0.1:9050',  // Custom SOCKS proxy (Orbot default)
+      fallbackToHttps: true  // Fallback to HTTPS if Tor unavailable
+    },
+    turn: {
+      servers: [  // TURN relay servers for WebRTC
+        {
+          urls: 'stun:stun.l.google.com:19302'
+        },
+        {
+          urls: 'turn:turn.scarcity.network:3478',
+          username: 'scarcity',
+          credential: 'relay-secret'
+        }
+      ]
+    }
   },
   storage: {
     encryption: true,
@@ -799,7 +855,9 @@ function WalletScreen() {
   "react-native-biometrics": "^3.0.0",
   "@react-native-community/netinfo": "^11.0.0",
   "react-native-background-fetch": "^4.2.0",
-  "bip39": "^3.1.0"
+  "bip39": "^3.1.0",
+  "react-native-tcp-socket": "^6.0.0",  // For SOCKS proxy (Tor support)
+  "socks": "^2.8.0"  // SOCKS5 client for Tor/Orbot integration
 }
 ```
 
@@ -857,28 +915,48 @@ function WalletScreen() {
 
 ---
 
+## Confirmed Design Decisions
+
+The following questions have been resolved:
+
+1. **Tor Support on Mobile** ✅ **APPROVED**
+   - Will support Tor via Orbot (Android) or custom SOCKS proxy
+   - Optional feature, disabled by default to preserve battery
+   - Users can enable in settings for maximum privacy
+
+2. **SDK Strategy** ✅ **SDK-ONLY**
+   - Provide core SDK without UI components
+   - Developers build their own custom UI
+   - Keeps SDK lightweight and flexible
+   - _UI component library may be added in future versions_
+
+3. **React Native Web Support** ✅ **APPROVED**
+   - Target React Native Web for code sharing with web wallet
+   - Single codebase for mobile (iOS/Android) and web
+   - Requires WebRTC polyfills for web platform
+   - Enables unified developer experience across platforms
+
+4. **TURN Server Strategy** ✅ **PUBLIC + CUSTOMIZABLE**
+   - Deploy public TURN relay servers (default endpoints)
+   - Allow users to configure custom TURN servers
+   - Provide fallback to public servers if custom servers fail
+   - Document TURN server setup for self-hosting
+
+5. **Distribution Strategy** ✅ **SDK-ONLY**
+   - Publish SDK to npm: `@scarcity/react-native`
+   - No reference app published to App Store/Google Play
+   - Developers build and publish their own apps
+   - Provide example app in repository for reference
+
 ## Open Questions
 
-1. **Should we support Tor on mobile?**
-   - Requires Orbot (Android) or custom SOCKS proxy
-   - Adds complexity and battery drain
-   - **Recommendation:** Skip for v1.0, add in v1.1 if users request
+The following remain to be decided:
 
-2. **Should we implement a custom UI library or just the SDK?**
-   - SDK-only: Developers build their own UI
-   - SDK + UI components: Faster integration, less flexibility
-   - **Recommendation:** SDK-only for v1.0, component library in v1.1
-
-3. **Should we support React Native Web (single codebase for mobile + web)?**
-   - Would enable code sharing with web wallet
-   - Requires additional WebRTC polyfills
-   - **Recommendation:** Evaluate after v1.0 stable
-
-4. **How to handle app updates with active gossip connections?**
+1. **How to handle app updates with active gossip connections?**
    - Need graceful shutdown and reconnect
    - **Recommendation:** Implement connection migration protocol
 
-5. **Should we support hardware wallets (Ledger, etc.)?**
+2. **Should we support hardware wallets (Ledger, etc.)?**
    - High security for large balances
    - Complex integration, small user base initially
    - **Recommendation:** Defer to v2.0
@@ -915,19 +993,24 @@ To begin Mobile SDK development:
 
 ---
 
-## Questions for Stakeholders
+## Stakeholder Decisions ✅
 
-Before starting development, please confirm:
+**Core decisions confirmed:**
 
-1. **Target Platforms:** iOS + Android only, or also React Native Web?
-2. **Minimum OS Versions:** iOS 14+, Android 10+?
-3. **TURN Servers:** Should we deploy public TURN relays, or require users to provide their own?
-4. **App Store Strategy:** Publish reference app, or SDK-only release?
-5. **Tor Support:** Required for v1.0, or defer to later?
-6. **Timeline:** Are there any hard deadlines or milestones?
+1. ✅ **Target Platforms:** iOS + Android + React Native Web
+2. ✅ **TURN Servers:** Deploy public TURN relays with user customization support
+3. ✅ **Distribution:** SDK-only release (npm package, no app stores)
+4. ✅ **Tor Support:** Include for v1.0 (optional, disabled by default)
+5. ✅ **SDK Strategy:** SDK-only, no UI component library for v1.0
+
+**Remaining questions:**
+
+1. **Minimum OS Versions:** iOS 14+, Android 10+? (needs confirmation)
+2. **Timeline:** Are there any hard deadlines or milestones?
 
 ---
 
-**Status:** Ready to begin Phase 1 upon approval
+**Status:** ✅ **APPROVED - Ready to begin Phase 1**
 **Estimated Effort:** 10-14 weeks for v1.0-beta
 **Next Milestone:** Phase 1 completion (foundation + crypto validation)
+**Platforms:** iOS + Android + Web (React Native Web)
