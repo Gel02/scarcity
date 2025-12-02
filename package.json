@@ -11,6 +11,8 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
+    "web": "npm run build && node dist/src/web/server.js",
+    "web:dev": "tsc && node dist/src/web/server.js",
     "test": "npm run test:integration",
     "test:integration": "npm run build && node dist/test/run-integration-tests.js",
     "test:basic": "npm run build && node dist/test/integration/01-basic-transfer.test.js",
@@ -32,10 +34,14 @@
   "dependencies": {
     "@noble/curves": "^1.9.7",
     "@noble/hashes": "^1.4.0",
+    "cors": "^2.8.5",
+    "express": "^5.2.1",
     "socks-proxy-agent": "^8.0.5",
     "ws": "^8.18.0"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
     "@types/node": "^20.11.0",
     "@types/ws": "^8.18.1",
     "typescript": "^5.9.3"

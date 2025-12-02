@@ -1119,6 +1119,111 @@ scar htlc claim htlc-package.json \
 
 ---
 
+## Web Wallet Interface
+
+Scarcity includes a modern web interface for managing wallets and tokens through your browser.
+
+### Quick Start
+
+```bash
+# Start the web wallet server
+npm run web
+
+# Open in browser
+open http://localhost:3000
+```
+
+The web wallet provides:
+- **Visual wallet management**: Create, import, and manage wallets with a clean UI
+- **Token operations**: Mint, transfer, receive, split, and merge tokens
+- **Real-time updates**: Live balance and transaction history
+- **Easy transfers**: Copy/paste transfer packages between wallets
+- **No framework dependencies**: Pure HTML/CSS/JavaScript
+
+### Features
+
+**Wallet Management:**
+- Create new wallets with generated keys
+- Import wallets from secret keys
+- Export secret keys for backup
+- Set default wallet
+- View public keys and balances
+
+**Token Operations:**
+- Mint new tokens
+- Send tokens to recipients
+- Receive tokens from transfer packages
+- Split tokens into multiple parts
+- Merge multiple tokens into one
+- View transaction history
+
+### Usage Flow
+
+1. **Initialize Network**: Click "Initialize Network" to connect to Scarcity infrastructure
+2. **Create Wallet**: Create or import a wallet to get started
+3. **Mint Tokens**: Mint initial tokens for testing or use
+4. **Transfer**: Send tokens using recipient public keys
+5. **Receive**: Paste transfer package JSON to receive tokens
+6. **Operations**: Use split/merge for flexible token management
+
+### API Endpoints
+
+The web wallet provides a REST API at `http://localhost:3000/api`:
+
+```bash
+# Health check
+GET /api/health
+
+# Initialize network
+POST /api/init
+
+# Wallet operations
+GET  /api/wallets
+POST /api/wallets
+GET  /api/wallets/:name/balance
+
+# Token operations
+POST /api/tokens/mint
+POST /api/tokens/transfer
+POST /api/tokens/receive
+POST /api/tokens/split
+POST /api/tokens/merge
+```
+
+### Configuration
+
+The web wallet uses the same configuration as the CLI:
+- Config: `~/.scarcity/config.json`
+- Wallets: `~/.scarcity/wallets.json`
+- Tokens: `~/.scarcity/tokens.json`
+
+### Custom Port
+
+```bash
+# Run on custom port
+PORT=8080 npm run web
+```
+
+### Development
+
+```bash
+# Build and run
+npm run web:dev
+
+# File structure
+src/web/
+├── server.ts           # Express API server
+├── public/
+│   ├── index.html     # Main interface
+│   ├── styles.css     # UI styling
+│   └── app.js         # Frontend logic
+└── README.md          # Detailed docs
+```
+
+See [src/web/README.md](src/web/README.md) for complete documentation.
+
+---
+
 ## Performance Characteristics
 
 ### Latency
@@ -1284,8 +1389,8 @@ Tests gracefully degrade to fallback mode, demonstrating resilience:
 - [x] Conditional payments (HTLCs) ✅ **COMPLETE**
 - [x] Cross-federation bridging ✅ **COMPLETE**
 
-**Phase 4: Tooling** 🔨 **IN PROGRESS** (1/4 complete, 25%)
-- [ ] Web wallet interface
+**Phase 4: Tooling** 🔨 **IN PROGRESS** (2/4 complete, 50%)
+- [x] Web wallet interface ✅ **COMPLETE**
 - [ ] Mobile SDK (React Native)
 - [x] CLI tools for Phase 3 operations ✅ **COMPLETE** (split, merge, multiparty, HTLC, bridge)
 - [ ] Block explorer (nullifier viewer)
