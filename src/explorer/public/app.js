@@ -489,6 +489,14 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initial stats load
   updateStats();
 
-  // Auto-refresh stats every 30 seconds
-  setInterval(updateStats, 30000);
+  // Auto-refresh stats every 10 seconds
+  setInterval(updateStats, 10000);
+
+  // Auto-refresh nullifiers every 5 seconds (when on feed tab)
+  setInterval(() => {
+    // Only refresh if we're on the feed tab
+    if ($('feed-tab').classList.contains('active')) {
+      loadNullifiers();
+    }
+  }, 5000);
 });
