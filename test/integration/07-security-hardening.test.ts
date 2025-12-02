@@ -29,7 +29,7 @@ export async function runSecurityHardeningTest(): Promise<void> {
   await runner.run('Multi-gateway Witness initialization', async () => {
     // Test backward compatibility with single gateway
     const singleGateway = new WitnessAdapter({
-      gatewayUrl: 'http://localhost:5001'
+      gatewayUrl: 'http://localhost:8080'
     });
     runner.assert(true, 'Single gateway should work (backward compatibility)');
 
@@ -63,7 +63,7 @@ export async function runSecurityHardeningTest(): Promise<void> {
     });
 
     const witness = new WitnessAdapter({
-      gatewayUrl: 'http://localhost:5001'
+      gatewayUrl: 'http://localhost:8080'
     });
 
     const gossip = new NullifierGossip({ witness });
@@ -159,7 +159,7 @@ export async function runSecurityHardeningTest(): Promise<void> {
   // Test 4: IPv6 Subnet Handling
   await runner.run('IPv6 subnet diversity', async () => {
     const witness = new WitnessAdapter({
-      gatewayUrl: 'http://localhost:5001'
+      gatewayUrl: 'http://localhost:8080'
     });
 
     const gossip = new NullifierGossip({ witness });

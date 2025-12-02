@@ -37,7 +37,7 @@ export async function runPhase3Tests(): Promise<any> {
   });
 
   const witness = new WitnessAdapter({
-    gatewayUrl: 'http://localhost:5001',
+    gatewayUrl: 'http://localhost:8080',
     networkId: 'test-network'
   });
 

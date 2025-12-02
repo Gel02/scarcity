@@ -30,7 +30,7 @@ export async function runBasicTransferTest(): Promise<void> {
   });
 
   const witness = new WitnessAdapter({
-    gatewayUrl: 'http://localhost:5001',
+    gatewayUrl: 'http://localhost:8080',
     networkId: 'test-network'
   });
 

@@ -26,7 +26,7 @@ export async function runSpamMitigationTest(): Promise<void> {
 
   await runner.run('should penalize peers for invalid witness proofs', async () => {
     const witness = new WitnessAdapter({
-      gatewayUrl: 'http://localhost:5001' // Non-existent
+      gatewayUrl: 'http://localhost:8080' // Non-existent
     });
 
     const gossip = new NullifierGossip({
@@ -62,7 +62,7 @@ export async function runSpamMitigationTest(): Promise<void> {
 
   await runner.run('should penalize peers for duplicate nullifiers', async () => {
     const witness = new WitnessAdapter({
-      gatewayUrl: 'http://localhost:5001'
+      gatewayUrl: 'http://localhost:8080'
     });
 
     const gossip = new NullifierGossip({
