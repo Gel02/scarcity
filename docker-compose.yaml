@@ -83,8 +83,7 @@ services:
   # FREEBIRD CLUSTER
   # ============================================================================
   freebird-issuer:
-    build:
-      context: https://github.com/flammafex/freebird.git
+    image: ghcr.io/flammafex/freebird-issuer:latest
     ports:
       - "8081:8081"
     environment:
@@ -98,8 +97,7 @@ services:
       - SYBIL_INVITE_BOOTSTRAP_USERS=admin:100
 
   freebird-verifier:
-    build:
-      context: https://github.com/flammafex/freebird.git
+    image: ghcr.io/flammafex/freebird-verifier:latest
     ports:
       - "8082:8082"
     depends_on:
