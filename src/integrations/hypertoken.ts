@@ -7,11 +7,52 @@
 
 import { HybridPeerManager } from '../vendor/hypertoken/HybridPeerManager.js';
 import type { PeerConnection, GossipMessage } from '../types.js';
+import { Crypto } from '../crypto.js';
 
 export interface HyperTokenAdapterConfig {
   readonly relayUrl?: string;
   readonly rateLimitPerSecond?: number;  // Max messages per second per peer (default: 10)
   readonly rateLimitBurst?: number;      // Max burst size (default: 20)
+}
+
+/**
+ * Serializable version of GossipMessage for JSON transmission
+ * Converts Uint8Arrays to hex strings
+ */
+interface SerializedGossipMessage {
+  readonly type: 'nullifier' | 'ping' | 'pong';
+  readonly nullifier?: string;
+  readonly proof?: any;
+  readonly timestamp: number;
+  readonly ownershipProof?: string;
+}
+
+/**
+ * Serialize GossipMessage for JSON transmission
+ * Converts Uint8Arrays to hex strings
+ */
+function serializeGossipMessage(msg: GossipMessage): SerializedGossipMessage {
+  return {
+    type: msg.type,
+    nullifier: msg.nullifier ? Crypto.toHex(msg.nullifier) : undefined,
+    proof: msg.proof,
+    timestamp: msg.timestamp,
+    ownershipProof: msg.ownershipProof ? Crypto.toHex(msg.ownershipProof) : undefined
+  };
+}
+
+/**
+ * Deserialize GossipMessage from JSON transmission
+ * Converts hex strings back to Uint8Arrays
+ */
+function deserializeGossipMessage(serialized: SerializedGossipMessage): GossipMessage {
+  return {
+    type: serialized.type,
+    nullifier: serialized.nullifier ? Crypto.fromHex(serialized.nullifier) : undefined,
+    proof: serialized.proof,
+    timestamp: serialized.timestamp,
+    ownershipProof: serialized.ownershipProof ? Crypto.fromHex(serialized.ownershipProof) : undefined
+  };
 }
 
 /**
@@ -91,9 +132,11 @@ class HyperTokenPeerWrapper implements PeerConnection {
     }
 
     console.log(`[HyperToken] Sending message to peer ${this.targetPeerId}`);
+    // Serialize GossipMessage to JSON-safe format (Uint8Array -> hex string)
+    const serialized = serializeGossipMessage(data);
     // Send message to specific peer using HyperToken's sendToPeer
     // This will use WebRTC if available, otherwise falls back to WebSocket
-    this.htManager.sendToPeer(this.targetPeerId, data);
+    this.htManager.sendToPeer(this.targetPeerId, serialized);
   }
 
   isConnected(): boolean {
@@ -112,7 +155,7 @@ class HyperTokenPeerWrapper implements PeerConnection {
   /**
    * Internal: Called by HyperTokenAdapter when a message arrives from this peer
    */
-  _handleIncomingMessage(data: GossipMessage): void {
+  _handleIncomingMessage(data: any): void {
     // LAYER 1: RATE LIMITING - Apply leaky bucket algorithm
     if (!this.rateLimiter.tryConsume()) {
       this.droppedMessages++;
@@ -121,7 +164,9 @@ class HyperTokenPeerWrapper implements PeerConnection {
     }
 
     if (this.messageHandler) {
-      this.messageHandler(data);
+      // Deserialize from JSON-safe format (hex string -> Uint8Array)
+      const deserializedMessage = deserializeGossipMessage(data as SerializedGossipMessage);
+      this.messageHandler(deserializedMessage);
     }
   }
 
