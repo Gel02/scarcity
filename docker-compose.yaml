@@ -5,6 +5,8 @@ services:
   scarcity-tests:
     build: .
     depends_on:
+      freebird-issuer:
+        condition: service_started
       freebird-verifier:
         condition: service_started
       witness-gateway:
@@ -36,6 +38,8 @@ services:
     ports:
       - "3000:3000"
     depends_on:
+      freebird-issuer:
+        condition: service_started
       freebird-verifier:
         condition: service_started
       witness-gateway:
@@ -57,6 +61,8 @@ services:
     ports:
       - "3001:3001"
     depends_on:
+      freebird-issuer:
+        condition: service_started
       freebird-verifier:
         condition: service_started
       witness-gateway:
