@@ -75,26 +75,25 @@ export class ExplorerServer {
         // Initialize infrastructure
         const infra = await this.infraManager.initialize();
 
-        // Create and start collector
+        // Create and start collector with WebSocket broadcast hook
         this.collector = new NullifierCollector({
           database: this.db,
           gossip: infra.gossip,
           witness: infra.witness,
-          federation: federation || 'default'
+          federation: federation || 'default',
+          // Hook into the collector stream to broadcast to UI
+          onNullifier: (message) => {
+            if (message.type === 'nullifier' && message.nullifier) {
+              this.broadcastNullifier({
+                nullifierHex: Crypto.toHex(message.nullifier),
+                timestamp: message.timestamp,
+                proof: message.proof
+              });
+            }
+          }
         });
 
         this.collector.start();
-
-        // Set up gossip handler to broadcast to WebSocket clients
-        infra.gossip.setReceiveHandler(async (message) => {
-          if (message.type === 'nullifier' && message.nullifier) {
-            this.broadcastNullifier({
-              nullifierHex: Crypto.toHex(message.nullifier),
-              timestamp: message.timestamp,
-              proof: message.proof
-            });
-          }
-        });
 
         res.json({ success: true });
       } catch (error: any) {

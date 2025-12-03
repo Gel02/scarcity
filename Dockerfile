@@ -1,9 +1,17 @@
 # ==============================================================================
 # Stage 1: Builder
 # ==============================================================================
-FROM node:20-alpine AS builder
+# Use node:20-slim (Debian) instead of Alpine for better native module compatibility
+FROM node:20-slim AS builder
 
 WORKDIR /app
+
+# Install build tools required for compiling native modules like @roamhq/wrtc
+RUN apt-get update && apt-get install -y \
+    python3 \
+    make \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install dependencies
 COPY package*.json ./
@@ -19,13 +27,16 @@ RUN npm run build
 # ==============================================================================
 # Stage 2: Test Runner / Runtime
 # ==============================================================================
-FROM node:20-alpine
+FROM node:20-slim
 
 WORKDIR /app
 
 # Install runtime dependencies
-# We need netcat (nc) for the wait-for-it script in the compose file
-RUN apk add --no-cache netcat-openbsd curl
+# We need netcat-openbsd (nc) for the wait-for-it script and curl for health checks
+RUN apt-get update && apt-get install -y \
+    netcat-openbsd \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy everything from builder (includes source, dist, node_modules with devDeps)
 COPY --from=builder /app ./ 

@@ -160,6 +160,7 @@ export class HyperTokenAdapter {
   private readyPromise: Promise<void>;
   private readyResolve?: () => void;
   private readyReject?: (error: Error) => void;
+  private peerDiscoveryHandler?: (peer: PeerConnection) => void;
 
   constructor(config: HyperTokenAdapterConfig = {}) {
     this.relayUrl = config.relayUrl ?? 'ws://localhost:8080';
@@ -171,6 +172,13 @@ export class HyperTokenAdapter {
       this.readyResolve = resolve;
       this.readyReject = reject;
     });
+  }
+
+  /**
+   * Set handler for when new peers are discovered
+   */
+  setPeerDiscoveryHandler(handler: (peer: PeerConnection) => void): void {
+    this.peerDiscoveryHandler = handler;
   }
 
   /**
@@ -195,6 +203,14 @@ export class HyperTokenAdapter {
     this.htManager.on('net:peer:connected', (evt: any) => {
       const peerId = evt.payload.peerId;
       console.log(`[HyperToken] Peer joined: ${peerId}`);
+      
+      // Automatically create wrapper for new peer
+      const peer = this.ensurePeerWrapper(peerId);
+      
+      // Notify discovery handler
+      if (this.peerDiscoveryHandler) {
+        this.peerDiscoveryHandler(peer);
+      }
     });
 
     this.htManager.on('net:peer:disconnected', (evt: any) => {
@@ -207,12 +223,17 @@ export class HyperTokenAdapter {
       // Route message to appropriate peer wrapper
       const fromPeerId = evt.payload?.fromPeerId || evt.fromPeerId;
       if (fromPeerId) {
-        const wrapper = this.peerWrappers.get(fromPeerId);
-        if (wrapper) {
-          // Extract the actual gossip message from the payload
-          const message = evt.payload?.data || evt.payload;
-          wrapper._handleIncomingMessage(message);
+        // Ensure wrapper exists (implicit discovery for broadcast messages)
+        const wrapper = this.ensurePeerWrapper(fromPeerId);
+        
+        // Notify handler if this was a new peer we hadn't seen before
+        if (!this.peerWrappers.has(fromPeerId) && this.peerDiscoveryHandler) {
+           this.peerDiscoveryHandler(wrapper);
         }
+
+        // Extract the actual gossip message from the payload
+        const message = evt.payload?.data || evt.payload;
+        wrapper._handleIncomingMessage(message);
       }
     });
 
@@ -257,14 +278,24 @@ export class HyperTokenAdapter {
   }
 
   /**
+   * Helper to ensure a peer wrapper exists
+   */
+  private ensurePeerWrapper(peerId: string): HyperTokenPeerWrapper {
+    let wrapper = this.peerWrappers.get(peerId);
+    if (!wrapper) {
+      wrapper = new HyperTokenPeerWrapper(
+        this.htManager!,
+        peerId,
+        this.rateLimitPerSecond,
+        this.rateLimitBurst
+      );
+      this.peerWrappers.set(peerId, wrapper);
+    }
+    return wrapper;
+  }
+
+  /**
    * Create a peer connection wrapper for a specific peer
-   *
-   * Note: This creates a virtual peer connection. The actual peer
-   * may not be connected yet - that happens dynamically as peers
-   * join the relay server.
-   *
-   * In fallback mode (when not connected), this creates a mock peer
-   * that can be used for testing but won't actually send/receive data.
    */
   createPeer(peerId?: string): PeerConnection {
     // Generate peer ID if not provided
@@ -283,16 +314,7 @@ export class HyperTokenAdapter {
       };
     }
 
-    // Create wrapper with rate limiting
-    const wrapper = new HyperTokenPeerWrapper(
-      this.htManager,
-      targetPeerId,
-      this.rateLimitPerSecond,
-      this.rateLimitBurst
-    );
-    this.peerWrappers.set(targetPeerId, wrapper);
-
-    return wrapper;
+    return this.ensurePeerWrapper(targetPeerId);
   }
 
   /**

@@ -48,8 +48,17 @@ export class InfrastructureManager {
     // Initialize Witness
     const witness = new WitnessAdapter(this.config.getWitnessConfig());
 
+    // Initialize Gossip network FIRST (so we can pass it to the handler)
+    const gossip = new NullifierGossip({ witness });
+
     // Initialize HyperToken
     const hypertoken = new HyperTokenAdapter(this.config.getHyperTokenConfig());
+
+    // Set up peer discovery - vital for finding other nodes!
+    hypertoken.setPeerDiscoveryHandler((peer) => {
+      console.log(`[Infrastructure] Auto-adding discovered peer: ${peer.id}`);
+      gossip.addPeer(peer);
+    });
 
     try {
       await hypertoken.connect();
@@ -58,10 +67,7 @@ export class InfrastructureManager {
       console.warn('You can still use the CLI, but double-spend detection will rely solely on Witness.');
     }
 
-    // Initialize Gossip network
-    const gossip = new NullifierGossip({ witness });
-
-    // Add peers from HyperToken
+    // Add existing peers if any (e.g. CLI defaults for testing)
     try {
       for (let i = 0; i < 3; i++) {
         const peer = hypertoken.createPeer(`cli-peer-${i}`);

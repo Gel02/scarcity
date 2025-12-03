@@ -15,6 +15,8 @@ export interface CollectorConfig {
   gossip: NullifierGossip;
   witness: WitnessClient;
   federation?: string;
+  // Add callback for realtime updates
+  onNullifier?: (message: GossipMessage) => void;
 }
 
 export class NullifierCollector {
@@ -23,6 +25,7 @@ export class NullifierCollector {
   private witness: WitnessClient;
   private federation: string;
   private running = false;
+  private onNullifier?: (message: GossipMessage) => void;
   private stats = {
     received: 0,
     stored: 0,
@@ -34,6 +37,7 @@ export class NullifierCollector {
     this.gossip = config.gossip;
     this.witness = config.witness;
     this.federation = config.federation || 'default';
+    this.onNullifier = config.onNullifier;
   }
 
   /**
@@ -71,6 +75,15 @@ export class NullifierCollector {
   private async handleGossipMessage(message: GossipMessage): Promise<void> {
     if (message.type !== 'nullifier' || !message.nullifier || !message.proof) {
       return;
+    }
+
+    // Call the realtime hook FIRST so UI updates instantly
+    if (this.onNullifier) {
+      try {
+        this.onNullifier(message);
+      } catch (err) {
+        console.error('Error in onNullifier callback:', err);
+      }
     }
 
     this.stats.received++;

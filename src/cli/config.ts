@@ -69,30 +69,71 @@ export class ConfigManager {
   }
 
   /**
-   * Load config from disk
+   * Load config from disk and apply environment overrides
    */
   private loadConfig(): ScarcityConfig {
-    if (!existsSync(this.configPath)) {
-      return { ...DEFAULT_CONFIG };
+    let loadedConfig: Partial<ScarcityConfig> = {};
+
+    // 1. Load from file if exists
+    if (existsSync(this.configPath)) {
+      try {
+        const data = readFileSync(this.configPath, 'utf-8');
+        loadedConfig = JSON.parse(data);
+      } catch (error) {
+        console.warn('Failed to load config file, using defaults');
+      }
     }
 
-    try {
-      const data = readFileSync(this.configPath, 'utf-8');
-      const loaded = JSON.parse(data);
+    // 2. Merge with defaults
+    const config = {
+      ...DEFAULT_CONFIG,
+      ...loadedConfig,
+      witness: { ...DEFAULT_CONFIG.witness, ...loadedConfig.witness },
+      freebird: { ...DEFAULT_CONFIG.freebird, ...loadedConfig.freebird },
+      hypertoken: { ...DEFAULT_CONFIG.hypertoken, ...loadedConfig.hypertoken },
+      tor: { ...DEFAULT_CONFIG.tor, ...loadedConfig.tor }
+    };
 
-      // Merge with defaults to handle new config keys
-      return {
-        ...DEFAULT_CONFIG,
-        ...loaded,
-        witness: { ...DEFAULT_CONFIG.witness, ...loaded.witness },
-        freebird: { ...DEFAULT_CONFIG.freebird, ...loaded.freebird },
-        hypertoken: { ...DEFAULT_CONFIG.hypertoken, ...loaded.hypertoken },
-        tor: { ...DEFAULT_CONFIG.tor, ...loaded.tor }
-      };
-    } catch (error) {
-      console.warn('Failed to load config, using defaults');
-      return { ...DEFAULT_CONFIG };
+    // 3. Apply Environment Variable Overrides (Docker/Cloud support)
+    // These take precedence over both defaults and local config file
+    
+    if (process.env.WITNESS_GATEWAY_URL) {
+      config.witness.gatewayUrl = process.env.WITNESS_GATEWAY_URL;
     }
+    
+    if (process.env.WITNESS_NETWORK_ID) {
+      config.witness.networkId = process.env.WITNESS_NETWORK_ID;
+    }
+
+    if (process.env.FREEBIRD_ISSUER_URL) {
+      // Docker env usually provides a single URL, treat as single-endpoint list
+      config.freebird.issuerEndpoints = [process.env.FREEBIRD_ISSUER_URL];
+    }
+
+    if (process.env.FREEBIRD_VERIFIER_URL) {
+      config.freebird.verifierUrl = process.env.FREEBIRD_VERIFIER_URL;
+    }
+
+    if (process.env.HYPERTOKEN_RELAY_URL) {
+      config.hypertoken.relayUrl = process.env.HYPERTOKEN_RELAY_URL;
+    }
+
+    if (process.env.TOR_ENABLED) {
+      config.tor.enabled = process.env.TOR_ENABLED === 'true';
+    }
+
+    if (process.env.TOR_PROXY) {
+      try {
+        // Parse socks5://host:port
+        const url = new URL(process.env.TOR_PROXY);
+        config.tor.proxyHost = url.hostname;
+        config.tor.proxyPort = parseInt(url.port, 10);
+      } catch (e) {
+        // Ignore invalid proxy URL
+      }
+    }
+
+    return config;
   }
 
   /**

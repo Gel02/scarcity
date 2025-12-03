@@ -1,6 +1,6 @@
 services:
   # ============================================================================
-  # SCARCITY
+  # SCARCITY TEST RUNNER
   # ============================================================================
   scarcity-tests:
     build: .
@@ -27,6 +27,51 @@ services:
         echo '✅ Services up! Running tests...' &&
         npm test
       "
+
+  # ============================================================================
+  # SCARCITY WEB SERVICES
+  # ============================================================================
+  scarcity-web-wallet:
+    build: .
+    ports:
+      - "3000:3000"
+    depends_on:
+      freebird-verifier:
+        condition: service_started
+      witness-gateway:
+        condition: service_started
+      hypertoken-relay:
+        condition: service_started
+    environment:
+      - PORT=3000
+      - FREEBIRD_ISSUER_URL=http://freebird-issuer:8081
+      - FREEBIRD_VERIFIER_URL=http://freebird-verifier:8082
+      - WITNESS_GATEWAY_URL=http://witness-gateway:8080
+      - HYPERTOKEN_RELAY_URL=ws://hypertoken-relay:3000
+    volumes:
+      - scarcity-data:/root/.scarcity
+    command: ["npm", "run", "web"]
+
+  scarcity-explorer:
+    build: .
+    ports:
+      - "3001:3001"
+    depends_on:
+      freebird-verifier:
+        condition: service_started
+      witness-gateway:
+        condition: service_started
+      hypertoken-relay:
+        condition: service_started
+    environment:
+      - PORT=3001
+      - FREEBIRD_ISSUER_URL=http://freebird-issuer:8081
+      - FREEBIRD_VERIFIER_URL=http://freebird-verifier:8082
+      - WITNESS_GATEWAY_URL=http://witness-gateway:8080
+      - HYPERTOKEN_RELAY_URL=ws://hypertoken-relay:3000
+    volumes:
+      - scarcity-data:/root/.scarcity
+    command: ["npm", "run", "explorer"]
 
   # ============================================================================
   # FREEBIRD CLUSTER
@@ -117,7 +162,8 @@ services:
       context: https://github.com/flammafex/hypertoken.git
     command: ["node", "start-relay.js", "3000"]
     ports:
-      - "3000:3000"
+      - "3002:3000" # Moved to 3002 to avoid conflict with Web Wallet
 
 volumes:
   witness-config:
+  scarcity-data: # Persistence for wallets and explorer DB
