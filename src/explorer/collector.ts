@@ -151,10 +151,12 @@ export class NullifierCollector {
    * Get collector statistics
    */
   getStats() {
+    const gossipStats = this.gossip.getStats();
     return {
       ...this.stats,
       running: this.running,
-      dbCount: this.db.getCount()
+      dbCount: this.db.getCount(),
+      gossip: gossipStats
     };
   }
 
