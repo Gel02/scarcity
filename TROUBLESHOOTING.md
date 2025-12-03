@@ -374,6 +374,55 @@ Scarcity is designed to work with graceful degradation - the tests will pass eve
 
 ---
 
+### ❌ Witness build fails with "feature `edition2024` is required" Cargo error
+
+**Problem:** The Witness repository uses Rust dependencies that require edition 2024 features not available in the Rust toolchain shipped with the Docker image.
+
+**Error message:**
+```
+error: failed to parse manifest at `.../base64ct-1.8.0/Cargo.toml`
+Caused by:
+  feature `edition2024` is required
+  The package requires the Cargo feature called `edition2024`, but that feature is not
+  stabilized in this version of Cargo (1.83.0).
+```
+
+**This is an upstream issue with the Witness repository's dependencies.**
+
+**Solution 1: Skip Witness and use simulation mode (quickest)**
+
+```bash
+# Start only Freebird (skip Witness and HyperToken)
+docker compose up -d freebird-issuer freebird-verifier
+
+# Run tests in simulation mode
+npm run build
+npm test
+```
+
+Scarcity's tests work in simulation mode without Witness or HyperToken.
+
+**Solution 2: Report to upstream Witness repository**
+
+This needs to be fixed in the Witness repository by either:
+- Pinning `base64ct` to an older version that doesn't require edition 2024
+- Updating the Witness Docker image to use Rust nightly/beta
+
+File an issue at: https://github.com/flammafex/witness/issues
+
+**Solution 3: Run only local Scarcity tests (no Docker)**
+
+```bash
+# Build and test Scarcity locally
+npm install
+npm run build
+npm test
+
+# All tests pass in simulation mode without external services
+```
+
+---
+
 ## Runtime Issues
 
 ### ❌ "ENOENT: no such file or directory, open '~/.scarcity/config.json'"
