@@ -84,16 +84,16 @@ services:
     environment:
       - ISSUER_ID=issuer:docker:v1
       - BIND_ADDR=0.0.0.0:8081
-      - ISSUER_URL=http://freebird-issuer:8081/.well-known/issuer
       - SYBIL_RESISTANCE=invitation
       - ADMIN_API_KEY=dev-admin-key-must-be-at-least-32-characters-long
       - ISSUER_SK_PATH=/tmp/issuer_sk.bin
       - KEY_ROTATION_STATE_PATH=/tmp/key_state.json
       - SYBIL_INVITE_PERSISTENCE_PATH=/tmp/invitations.json
       - SYBIL_INVITE_BOOTSTRAP_USERS=admin:100
+    command: ["freebird-issuer"]
 
   freebird-verifier:
-    build: 
+    build:
       context: https://github.com/flammafex/freebird.git
     ports:
       - "8082:8082"
@@ -103,6 +103,7 @@ services:
       - BIND_ADDR=0.0.0.0:8082
       - ISSUER_URL=http://freebird-issuer:8081/.well-known/issuer
       - REDIS_URL=redis://freebird-redis:6379
+    command: ["freebird-verifier"]
 
   freebird-redis:
     image: redis:alpine
