@@ -66,13 +66,10 @@ services:
   # ============================================================================
   # WITNESS CLUSTER
   # ============================================================================
-  # Note: Using newer Rust 1.85+ to support edition2024 features required by dependencies
   witness-setup:
     build:
       context: https://github.com/flammafex/witness.git
       target: witness-node
-      args:
-        RUST_VERSION: "1.85"
     volumes:
       - witness-config:/data
     entrypoint: ["/bin/bash", "-c"]
@@ -88,8 +85,6 @@ services:
     build:
       context: https://github.com/flammafex/witness.git
       target: witness-node
-      args:
-        RUST_VERSION: "1.85"
     depends_on:
       witness-setup:
         condition: service_completed_successfully
@@ -101,8 +96,6 @@ services:
     build:
       context: https://github.com/flammafex/witness.git
       target: witness-gateway
-      args:
-        RUST_VERSION: "1.85"
     ports:
       - "8080:8080"
     depends_on:
@@ -119,21 +112,9 @@ services:
   # ============================================================================
   # HYPERTOKEN RELAY
   # ============================================================================
-  # Uses the start-relay.js from the root of the repo
   hypertoken-relay:
     build:
       context: https://github.com/flammafex/hypertoken.git
-      dockerfile_inline: |
-        FROM node:20-alpine
-        WORKDIR /app
-        COPY . .
-        # Install all workspace dependencies
-        RUN npm install
-        # Build only the relay package (skip quickstart)
-        RUN npx tsc -p packages/relay/tsconfig.json
-        EXPOSE 3000
-        # Use the root startup script
-        CMD ["node", "start-relay.js", "3000"]
     ports:
       - "3000:3000"
 
