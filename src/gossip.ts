@@ -90,7 +90,6 @@ export class NullifierGossip {
       timestamp: Date.now()
     };
 
-    console.log(`[Gossip] Publishing nullifier ${key.substring(0, 16)}... to ${this.peerConnections.length} peers`);
     await this.broadcast(message);
 
     // Notify local receiveHandler (so collectors in same process can see it)
@@ -140,9 +139,7 @@ export class NullifierGossip {
    * @param peerId - Optional peer ID for reputation tracking
    */
   async onReceive(data: GossipMessage, peerId?: string): Promise<void> {
-    console.log(`[Gossip] onReceive called with message from peer ${peerId}, type: ${data.type}`);
     if (data.type !== 'nullifier' || !data.nullifier || !data.proof) {
-      console.log(`[Gossip] Ignoring non-nullifier message`);
       return;
     }
 
@@ -317,15 +314,11 @@ export class NullifierGossip {
    * Broadcast message to all peers
    */
   private async broadcast(message: GossipMessage, skipFailed = false): Promise<void> {
-    const connectedPeers = this.peerConnections.filter(peer => peer.isConnected());
-    console.log(`[Gossip] Broadcasting to ${connectedPeers.length} connected peers (${this.peerConnections.length} total):`, connectedPeers.map(p => p.id));
-
-    const promises = connectedPeers
+    const promises = this.peerConnections
+      .filter(peer => peer.isConnected())
       .map(async (peer) => {
         try {
-          console.log(`[Gossip] Sending message to peer ${peer.id}`);
           await peer.send(message);
-          console.log(`[Gossip] Successfully sent message to peer ${peer.id}`);
         } catch (error) {
           if (!skipFailed) {
             throw error;
