@@ -234,9 +234,10 @@ export class HyperTokenAdapter {
            this.peerDiscoveryHandler(wrapper);
         }
 
-        // Extract the actual gossip message from the payload
-        const message = evt.payload?.data || evt.payload;
-        console.log(`[HyperToken] Routing message to wrapper for peer ${fromPeerId}`);
+        // Extract the actual gossip message from the nested payload
+        // HyperToken wraps messages as: { payload: <actual-message>, fromPeerId: <id> }
+        const message = evt.payload?.payload || evt.payload?.data || evt.payload;
+        console.log(`[HyperToken] Extracted message:`, message);
         wrapper._handleIncomingMessage(message);
       }
     });
