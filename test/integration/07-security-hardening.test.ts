@@ -16,7 +16,7 @@ import {
 } from '../../src/index.js';
 
 import type { PeerConnection, GossipMessage } from '../../src/types.js';
-import { TestRunner, createTestKeyPair, sleep } from '../helpers/test-utils.js';
+import { TestRunner, createTestKeyPair, sleep, TestConfig } from '../helpers/test-utils.js';
 
 export async function runSecurityHardeningTest(): Promise<void> {
   const runner = new TestRunner();
@@ -29,16 +29,16 @@ export async function runSecurityHardeningTest(): Promise<void> {
   await runner.run('Multi-gateway Witness initialization', async () => {
     // Test backward compatibility with single gateway
     const singleGateway = new WitnessAdapter({
-      gatewayUrl: 'http://localhost:8080'
+      gatewayUrl: TestConfig.witness.gateway
     });
     runner.assert(true, 'Single gateway should work (backward compatibility)');
 
     // Test multiple gateways with default quorum (2-of-3)
     const multiGateway = new WitnessAdapter({
       gatewayUrls: [
-        'http://localhost:5001',
-        'http://localhost:5002',
-        'http://localhost:5003'
+        TestConfig.witness.gateway,
+        TestConfig.witness.gateway2, // Use secondary gateway
+        'http://localhost:5003' // Mock third gateway
       ]
     });
     runner.assert(true, 'Multiple gateways should initialize');
@@ -46,8 +46,8 @@ export async function runSecurityHardeningTest(): Promise<void> {
     // Test custom quorum threshold
     const customQuorum = new WitnessAdapter({
       gatewayUrls: [
-        'http://localhost:5001',
-        'http://localhost:5002',
+        TestConfig.witness.gateway,
+        TestConfig.witness.gateway2,
         'http://localhost:5003'
       ],
       quorumThreshold: 2
@@ -58,12 +58,12 @@ export async function runSecurityHardeningTest(): Promise<void> {
   // Test 2: Outbound Peer Preference
   await runner.run('Outbound peer preference in confidence scoring', async () => {
     const freebird = new FreebirdAdapter({
-      issuerEndpoints: ['http://localhost:8081'],
-      verifierUrl: 'http://localhost:8082'
+      issuerEndpoints: [TestConfig.freebird.issuer],
+      verifierUrl: TestConfig.freebird.verifier
     });
 
     const witness = new WitnessAdapter({
-      gatewayUrl: 'http://localhost:8080'
+      gatewayUrl: TestConfig.witness.gateway
     });
 
     const gossip = new NullifierGossip({ witness });
@@ -119,7 +119,7 @@ export async function runSecurityHardeningTest(): Promise<void> {
   // Test 3: IP Subnet Diversity Checks
   await runner.run('IP subnet diversity detection', async () => {
     const witness = new WitnessAdapter({
-      gatewayUrl: 'http://localhost:5001'
+      gatewayUrl: TestConfig.witness.gateway
     });
 
     const gossip = new NullifierGossip({ witness });
@@ -159,7 +159,7 @@ export async function runSecurityHardeningTest(): Promise<void> {
   // Test 4: IPv6 Subnet Handling
   await runner.run('IPv6 subnet diversity', async () => {
     const witness = new WitnessAdapter({
-      gatewayUrl: 'http://localhost:8080'
+      gatewayUrl: TestConfig.witness.gateway
     });
 
     const gossip = new NullifierGossip({ witness });
@@ -199,15 +199,15 @@ export async function runSecurityHardeningTest(): Promise<void> {
   // Test 5: Combined Security Features
   await runner.run('Combined security: Multi-gateway + Peer diversity', async () => {
     const freebird = new FreebirdAdapter({
-      issuerEndpoints: ['http://localhost:8081'],
-      verifierUrl: 'http://localhost:8082'
+      issuerEndpoints: [TestConfig.freebird.issuer],
+      verifierUrl: TestConfig.freebird.verifier
     });
 
     // Use multiple gateways for redundancy
     const witness = new WitnessAdapter({
       gatewayUrls: [
-        'http://localhost:5001',
-        'http://localhost:5002',
+        TestConfig.witness.gateway,
+        TestConfig.witness.gateway2,
         'http://localhost:5003'
       ],
       quorumThreshold: 2
@@ -264,8 +264,8 @@ export async function runSecurityHardeningTest(): Promise<void> {
 
     const witness = new WitnessAdapter({
       gatewayUrls: [
-        'http://localhost:5001',
-        'http://localhost:5002',
+        TestConfig.witness.gateway,
+        TestConfig.witness.gateway2,
         'http://localhost:5003'
       ],
       quorumThreshold: 2 // 2-of-3 required

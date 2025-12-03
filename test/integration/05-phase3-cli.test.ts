@@ -22,7 +22,7 @@ import {
 import { TokenStorage } from '../../src/cli/token-store.js';
 import { WalletManager } from '../../src/cli/wallet.js';
 import { ConfigManager } from '../../src/cli/config.js';
-import { TestRunner, createTestKeyPair, sleep } from '../helpers/test-utils.js';
+import { TestRunner, createTestKeyPair, sleep, TestConfig } from '../helpers/test-utils.js';
 import * as fs from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
@@ -42,17 +42,17 @@ export async function runPhase3CLITests(): Promise<any> {
 
   // Setup test infrastructure
   const freebird = new FreebirdAdapter({
-    issuerEndpoints: ['http://localhost:8081'],
-    verifierUrl: 'http://localhost:8082'
+    issuerEndpoints: [TestConfig.freebird.issuer],
+    verifierUrl: TestConfig.freebird.verifier
   });
 
   const witness = new WitnessAdapter({
-    gatewayUrl: 'http://localhost:5001',
+    gatewayUrl: TestConfig.witness.gateway,
     networkId: 'gateway-1'
   });
 
   const hypertoken = new HyperTokenAdapter({
-    relayUrl: 'ws://localhost:3000'
+    relayUrl: TestConfig.hypertoken.relay
   });
 
   const gossip = new NullifierGossip({
@@ -408,7 +408,7 @@ export async function runPhase3CLITests(): Promise<any> {
   await runner.run('CLI: Bridge token to target federation', async () => {
     // Setup target federation (separate gateway for cross-federation testing)
     const targetWitness = new WitnessAdapter({
-      gatewayUrl: 'http://localhost:5002',
+      gatewayUrl: TestConfig.witness.gateway2,
       networkId: 'gateway-2'
     });
 

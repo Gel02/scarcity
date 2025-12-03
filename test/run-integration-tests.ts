@@ -64,6 +64,7 @@ async function main() {
   console.log('█'.repeat(60));
 
   // Check service availability
+  // Uses TestConfig from test-utils.ts to check configured URLs (env vars or defaults)
   const services = await checkServices();
 
   const results: { name: string; passed: boolean; error?: string }[] = [];

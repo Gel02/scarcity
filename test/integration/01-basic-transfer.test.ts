@@ -14,7 +14,7 @@ import {
   HyperTokenAdapter
 } from '../../src/index.js';
 
-import { TestRunner, createTestKeyPair, sleep } from '../helpers/test-utils.js';
+import { TestRunner, createTestKeyPair, sleep, TestConfig } from '../helpers/test-utils.js';
 
 export async function runBasicTransferTest(): Promise<void> {
   const runner = new TestRunner();
@@ -25,17 +25,17 @@ export async function runBasicTransferTest(): Promise<void> {
 
   // Setup infrastructure
   const freebird = new FreebirdAdapter({
-    issuerEndpoints: ['http://localhost:8081'],
-    verifierUrl: 'http://localhost:8082'
+    issuerEndpoints: [TestConfig.freebird.issuer],
+    verifierUrl: TestConfig.freebird.verifier
   });
 
   const witness = new WitnessAdapter({
-    gatewayUrl: 'http://localhost:5001',
+    gatewayUrl: TestConfig.witness.gateway,
     networkId: 'test-network'
   });
 
   const hypertoken = new HyperTokenAdapter({
-    relayUrl: 'ws://localhost:3000'
+    relayUrl: TestConfig.hypertoken.relay
   });
 
   await runner.run('HyperToken connection', async () => {

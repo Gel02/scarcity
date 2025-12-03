@@ -21,7 +21,7 @@ import {
   type HTLCCondition
 } from '../../src/index.js';
 
-import { TestRunner, createTestKeyPair, sleep } from '../helpers/test-utils.js';
+import { TestRunner, createTestKeyPair, sleep, TestConfig } from '../helpers/test-utils.js';
 
 export async function runPhase3Tests(): Promise<any> {
   const runner = new TestRunner();
@@ -32,17 +32,17 @@ export async function runPhase3Tests(): Promise<any> {
 
   // Setup infrastructure
   const freebird = new FreebirdAdapter({
-    issuerEndpoints: ['http://localhost:8081'],
-    verifierUrl: 'http://localhost:8082'
+    issuerEndpoints: [TestConfig.freebird.issuer],
+    verifierUrl: TestConfig.freebird.verifier
   });
 
   const witness = new WitnessAdapter({
-    gatewayUrl: 'http://localhost:5001',
+    gatewayUrl: TestConfig.witness.gateway,
     networkId: 'gateway1-network'
   });
 
   const hypertoken = new HyperTokenAdapter({
-    relayUrl: 'ws://localhost:3000'
+    relayUrl: TestConfig.hypertoken.relay
   });
 
   await runner.run('HyperToken connection', async () => {
@@ -328,7 +328,7 @@ export async function runPhase3Tests(): Promise<any> {
   // Test 11: Cross-Federation Bridge
   await runner.run('Cross-federation bridge', async () => {
     const witness2 = new WitnessAdapter({
-      gatewayUrl: 'http://localhost:5002',
+      gatewayUrl: TestConfig.witness.gateway2, // Use secondary witness gateway
       networkId: 'test-federation-2'
     });
 

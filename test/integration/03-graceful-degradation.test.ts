@@ -15,7 +15,7 @@ import {
   HyperTokenAdapter
 } from '../../src/index.js';
 
-import { TestRunner, createTestKeyPair } from '../helpers/test-utils.js';
+import { TestRunner, createTestKeyPair, TestConfig } from '../helpers/test-utils.js';
 
 export async function runGracefulDegradationTest(): Promise<void> {
   const runner = new TestRunner();
@@ -146,10 +146,10 @@ export async function runGracefulDegradationTest(): Promise<void> {
 
   // Test 5: Mixed mode (some services available, some not)
   await runner.run('Mixed service availability', async () => {
-    // Real Freebird URLs (may or may not be running)
+    // Real Freebird URLs (may or may not be running, use TestConfig)
     const freebird = new FreebirdAdapter({
-      issuerEndpoints: ['http://localhost:8081'],
-      verifierUrl: 'http://localhost:8082'
+      issuerEndpoints: [TestConfig.freebird.issuer],
+      verifierUrl: TestConfig.freebird.verifier
     });
 
     // Invalid Witness URL
@@ -164,8 +164,8 @@ export async function runGracefulDegradationTest(): Promise<void> {
     const attestation = await witness.timestamp('mixed-mode-test');
 
     // Blinded value can be either:
-    // - 33 bytes (VOPRF mode if localhost:8081 is running)
-    // - 32 bytes (fallback mode if localhost:8081 is not running)
+    // - 33 bytes (VOPRF mode if service is running)
+    // - 32 bytes (fallback mode if service is not running)
     const blindedSize = blinded.length;
     const isVoprfMode = blindedSize === 33;
     const isFallbackMode = blindedSize === 32;

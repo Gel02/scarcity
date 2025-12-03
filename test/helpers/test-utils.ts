@@ -5,6 +5,22 @@
 import { Crypto } from '../../src/crypto.js';
 import type { PublicKey } from '../../src/types.js';
 
+// Centralized test configuration with environment variable support
+export const TestConfig = {
+  freebird: {
+    issuer: process.env.FREEBIRD_ISSUER_URL || 'http://localhost:8081',
+    verifier: process.env.FREEBIRD_VERIFIER_URL || 'http://localhost:8082'
+  },
+  witness: {
+    gateway: process.env.WITNESS_GATEWAY_URL || 'http://localhost:8080',
+    // Secondary gateway for bridge tests (defaults to 5002 if not specified)
+    gateway2: process.env.WITNESS_GATEWAY_2_URL || 'http://localhost:5002'
+  },
+  hypertoken: {
+    relay: process.env.HYPERTOKEN_RELAY_URL || 'ws://localhost:3000'
+  }
+};
+
 /**
  * Test result with timing information
  */
@@ -185,10 +201,10 @@ export async function checkServices() {
   console.log('\n🔍 Checking service availability...\n');
 
   const services = [
-    { name: 'HyperToken Relay', url: 'ws://localhost:8080', skip: true }, // WebSocket, can't easily check
-    { name: 'Witness Gateway', url: 'http://localhost:8080/v1/config' },
-    { name: 'Freebird Issuer', url: 'http://localhost:8081/.well-known/issuer' },
-    { name: 'Freebird Verifier', url: 'http://localhost:8082/.well-known/issuer' }
+    { name: 'HyperToken Relay', url: TestConfig.hypertoken.relay, skip: true }, // WebSocket, can't easily check
+    { name: 'Witness Gateway', url: `${TestConfig.witness.gateway}/v1/config` },
+    { name: 'Freebird Issuer', url: `${TestConfig.freebird.issuer}/.well-known/issuer` },
+    { name: 'Freebird Verifier', url: `${TestConfig.freebird.verifier}/.well-known/issuer` }
   ];
 
   const results: { [key: string]: boolean } = {};
@@ -204,9 +220,9 @@ export async function checkServices() {
     results[service.name] = available;
 
     if (available) {
-      console.log(`✅ ${service.name}: Available`);
+      console.log(`✅ ${service.name}: Available (${service.url})`);
     } else {
-      console.log(`❌ ${service.name}: Not available`);
+      console.log(`❌ ${service.name}: Not available (${service.url})`);
     }
   }
 

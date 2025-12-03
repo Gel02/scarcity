@@ -7,7 +7,7 @@
  * - Layer 3: Ownership proof verification
  */
 
-import { TestRunner } from '../helpers/test-utils.js';
+import { TestRunner, TestConfig } from '../helpers/test-utils.js';
 import { NullifierGossip } from '../../src/gossip.js';
 import { WitnessAdapter } from '../../src/integrations/witness.js';
 import { HyperTokenAdapter } from '../../src/integrations/hypertoken.js';
@@ -26,7 +26,7 @@ export async function runSpamMitigationTest(): Promise<void> {
 
   await runner.run('should penalize peers for invalid witness proofs', async () => {
     const witness = new WitnessAdapter({
-      gatewayUrl: 'http://localhost:5001' // Non-existent
+      gatewayUrl: TestConfig.witness.gateway
     });
 
     const gossip = new NullifierGossip({
@@ -62,7 +62,7 @@ export async function runSpamMitigationTest(): Promise<void> {
 
   await runner.run('should penalize peers for duplicate nullifiers', async () => {
     const witness = new WitnessAdapter({
-      gatewayUrl: 'http://localhost:5001'
+      gatewayUrl: TestConfig.witness.gateway
     });
 
     const gossip = new NullifierGossip({
@@ -105,7 +105,7 @@ export async function runSpamMitigationTest(): Promise<void> {
 
   await runner.run('should disconnect peer when score falls below threshold', async () => {
     const witness = new WitnessAdapter({
-      gatewayUrl: 'http://localhost:5001'
+      gatewayUrl: TestConfig.witness.gateway
     });
 
     const gossip = new NullifierGossip({
@@ -157,7 +157,7 @@ export async function runSpamMitigationTest(): Promise<void> {
 
   await runner.run('should reject nullifiers with future timestamps', async () => {
     const witness = new WitnessAdapter({
-      gatewayUrl: 'http://localhost:5001'
+      gatewayUrl: TestConfig.witness.gateway
     });
 
     const gossip = new NullifierGossip({
@@ -193,7 +193,7 @@ export async function runSpamMitigationTest(): Promise<void> {
 
   await runner.run('should reject nullifiers that are too old', async () => {
     const witness = new WitnessAdapter({
-      gatewayUrl: 'http://localhost:5001'
+      gatewayUrl: TestConfig.witness.gateway
     });
 
     const gossip = new NullifierGossip({
@@ -265,7 +265,7 @@ export async function runSpamMitigationTest(): Promise<void> {
 
   await runner.run('should integrate PoW with Witness timestamping', async () => {
     const witness = new WitnessAdapter({
-      gatewayUrl: 'http://localhost:5001',
+      gatewayUrl: TestConfig.witness.gateway,
       powDifficulty: 12 // Enable PoW
     });
 
@@ -293,7 +293,7 @@ export async function runSpamMitigationTest(): Promise<void> {
 
   await runner.run('should configure rate limiter correctly', async () => {
     const adapter = new HyperTokenAdapter({
-      relayUrl: 'ws://localhost:8080',
+      relayUrl: TestConfig.hypertoken.relay,
       rateLimitPerSecond: 5,  // Low rate for testing
       rateLimitBurst: 10
     });
@@ -308,7 +308,7 @@ export async function runSpamMitigationTest(): Promise<void> {
 
   await runner.run('should reject messages without ownership proof when required', async () => {
     const witness = new WitnessAdapter({
-      gatewayUrl: 'http://localhost:5001'
+      gatewayUrl: TestConfig.witness.gateway
     });
 
     const gossip = new NullifierGossip({
@@ -345,7 +345,7 @@ export async function runSpamMitigationTest(): Promise<void> {
 
   await runner.run('should accept messages with ownership proof when required', async () => {
     const witness = new WitnessAdapter({
-      gatewayUrl: 'http://localhost:5001'
+      gatewayUrl: TestConfig.witness.gateway
     });
 
     const gossip = new NullifierGossip({
@@ -381,7 +381,7 @@ export async function runSpamMitigationTest(): Promise<void> {
 
   await runner.run('should resist spam attack from multiple peers', async () => {
     const witness = new WitnessAdapter({
-      gatewayUrl: 'http://localhost:5001'
+      gatewayUrl: TestConfig.witness.gateway
     });
 
     const gossip = new NullifierGossip({
