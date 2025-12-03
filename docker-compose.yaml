@@ -79,7 +79,6 @@ services:
   freebird-issuer:
     build: 
       context: https://github.com/flammafex/freebird.git
-      target: issuer
     ports:
       - "8081:8081"
     environment:
@@ -95,7 +94,6 @@ services:
   freebird-verifier:
     build: 
       context: https://github.com/flammafex/freebird.git
-      target: verifier
     ports:
       - "8082:8082"
     depends_on:
