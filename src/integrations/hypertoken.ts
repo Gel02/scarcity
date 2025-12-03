@@ -127,11 +127,9 @@ class HyperTokenPeerWrapper implements PeerConnection {
 
   async send(data: GossipMessage): Promise<void> {
     if (!this.isConnected()) {
-      console.warn(`[HyperToken] Cannot send to peer ${this.id}: not connected`);
       throw new Error(`Peer ${this.id} is not connected`);
     }
 
-    console.log(`[HyperToken] Sending message to peer ${this.targetPeerId}`);
     // Serialize GossipMessage to JSON-safe format (Uint8Array -> hex string)
     const serialized = serializeGossipMessage(data);
     // Send message to specific peer using HyperToken's sendToPeer
@@ -269,7 +267,6 @@ export class HyperTokenAdapter {
     this.htManager.on('net:message', (evt: any) => {
       // Route message to appropriate peer wrapper
       const fromPeerId = evt.payload?.fromPeerId || evt.fromPeerId;
-      console.log(`[HyperToken] Received message from peer ${fromPeerId}`, evt.payload);
       if (fromPeerId) {
         // Ensure wrapper exists (implicit discovery for broadcast messages)
         const wrapper = this.ensurePeerWrapper(fromPeerId);
@@ -282,7 +279,6 @@ export class HyperTokenAdapter {
         // Extract the actual gossip message from the nested payload
         // HyperToken wraps messages as: { payload: <actual-message>, fromPeerId: <id> }
         const message = evt.payload?.payload || evt.payload?.data || evt.payload;
-        console.log(`[HyperToken] Extracted message:`, message);
         wrapper._handleIncomingMessage(message);
       }
     });
