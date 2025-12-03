@@ -119,21 +119,9 @@ services:
   # ============================================================================
   # HYPERTOKEN RELAY
   # ============================================================================
-  # Uses the start-relay.js from the root of the repo
   hypertoken-relay:
     build:
       context: https://github.com/flammafex/hypertoken.git
-      dockerfile_inline: |
-        FROM node:20-alpine
-        WORKDIR /app
-        COPY . .
-        # Install all workspace dependencies
-        RUN npm install
-        # Build only the relay package (skip quickstart)
-        RUN npx tsc -p packages/relay/tsconfig.json
-        EXPOSE 3000
-        # Use the root startup script
-        CMD ["node", "start-relay.js", "3000"]
     ports:
       - "3000:3000"
 
