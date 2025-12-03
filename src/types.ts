@@ -108,6 +108,8 @@ export interface PeerConnection {
   readonly remoteAddress?: string; // Remote IP for diversity checks
   send(data: GossipMessage): Promise<void>;
   isConnected(): boolean;
+  setMessageHandler(handler: (data: GossipMessage) => void): void;
+  disconnect?(): void;
 }
 
 export interface GossipMessage {
