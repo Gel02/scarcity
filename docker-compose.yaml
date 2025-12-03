@@ -91,7 +91,6 @@ services:
       - KEY_ROTATION_STATE_PATH=/tmp/key_state.json
       - SYBIL_INVITE_PERSISTENCE_PATH=/tmp/invitations.json
       - SYBIL_INVITE_BOOTSTRAP_USERS=admin:100
-    command: ["freebird-issuer"]
 
   freebird-verifier:
     build:
@@ -105,7 +104,6 @@ services:
       - BIND_ADDR=0.0.0.0:8082
       - ISSUER_URL=http://freebird-issuer:8081/.well-known/issuer
       - REDIS_URL=redis://freebird-redis:6379
-    command: ["freebird-verifier"]
 
   freebird-redis:
     image: redis:alpine
