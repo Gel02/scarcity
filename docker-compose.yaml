@@ -120,11 +120,47 @@ services:
     entrypoint: ["/bin/bash", "-c"]
     command:
       - |
-        if [ -f /data/network.json ]; then exit 0; fi
-        PUB1=$$(witness-node --generate-key | grep Public | awk '{print $$3}')
-        PRIV1=$$(witness-node --generate-key | grep Private | awk '{print $$3}')
-        echo "{\"id\":\"w1\",\"private_key\":\"$$PRIV1\",\"port\":3000,\"network_id\":\"docker\",\"max_clock_skew\":300}" > /data/w1.json
-        echo "{\"id\":\"docker\",\"threshold\":1,\"witnesses\":[{\"id\":\"w1\",\"pubkey\":\"$$PUB1\",\"endpoint\":\"http://witness-1:3000\"}],\"federation_peers\":[],\"external_anchors\":{\"enabled\":false,\"providers\":[]}}" > /data/network.json
+        if [ -f /data/network.json ]; then
+          echo "✅ Configuration already exists. Skipping setup."
+          exit 0
+        fi
+
+        echo "🔧 Generating Witness Keys..."
+
+        # Generate witness-1
+        OUT1=$$(witness-node --generate-key)
+        PRIV1=$$(echo "$$OUT1" | grep "Private key:" | awk '{print $$3}')
+        PUB1=$$(echo "$$OUT1" | grep "Public key:" | awk '{print $$3}')
+        echo "{\"id\": \"witness-1\", \"private_key\": \"$$PRIV1\", \"port\": 3000, \"network_id\": \"docker-net\", \"max_clock_skew\": 300}" > /data/witness1.json
+
+        # Generate witness-2
+        OUT2=$$(witness-node --generate-key)
+        PRIV2=$$(echo "$$OUT2" | grep "Private key:" | awk '{print $$3}')
+        PUB2=$$(echo "$$OUT2" | grep "Public key:" | awk '{print $$3}')
+        echo "{\"id\": \"witness-2\", \"private_key\": \"$$PRIV2\", \"port\": 3000, \"network_id\": \"docker-net\", \"max_clock_skew\": 300}" > /data/witness2.json
+
+        # Generate witness-3
+        OUT3=$$(witness-node --generate-key)
+        PRIV3=$$(echo "$$OUT3" | grep "Private key:" | awk '{print $$3}')
+        PUB3=$$(echo "$$OUT3" | grep "Public key:" | awk '{print $$3}')
+        echo "{\"id\": \"witness-3\", \"private_key\": \"$$PRIV3\", \"port\": 3000, \"network_id\": \"docker-net\", \"max_clock_skew\": 300}" > /data/witness3.json
+
+        echo "📝 Creating network.json..."
+        cat > /data/network.json <<EOF
+        {
+          "id": "docker-net",
+          "threshold": 2,
+          "witnesses": [
+            { "id": "witness-1", "pubkey": "$$PUB1", "endpoint": "http://witness-1:3000" },
+            { "id": "witness-2", "pubkey": "$$PUB2", "endpoint": "http://witness-2:3000" },
+            { "id": "witness-3", "pubkey": "$$PUB3", "endpoint": "http://witness-3:3000" }
+          ],
+          "federation_peers": [],
+          "external_anchors": { "enabled": false, "providers": [] }
+        }
+        EOF
+
+        echo "✅ Setup complete."
 
   witness-1:
     build:
@@ -135,7 +171,29 @@ services:
         condition: service_completed_successfully
     volumes:
       - witness-config:/data
-    command: ["witness-node", "--config", "/data/w1.json"]
+    command: ["witness-node", "--config", "/data/witness1.json"]
+
+  witness-2:
+    build:
+      context: https://github.com/flammafex/witness.git
+      target: witness-node
+    depends_on:
+      witness-setup:
+        condition: service_completed_successfully
+    volumes:
+      - witness-config:/data
+    command: ["witness-node", "--config", "/data/witness2.json"]
+
+  witness-3:
+    build:
+      context: https://github.com/flammafex/witness.git
+      target: witness-node
+    depends_on:
+      witness-setup:
+        condition: service_completed_successfully
+    volumes:
+      - witness-config:/data
+    command: ["witness-node", "--config", "/data/witness3.json"]
 
   witness-gateway:
     build:
@@ -147,6 +205,10 @@ services:
       witness-setup:
         condition: service_completed_successfully
       witness-1:
+        condition: service_started
+      witness-2:
+        condition: service_started
+      witness-3:
         condition: service_started
     volumes:
       - witness-config:/config
