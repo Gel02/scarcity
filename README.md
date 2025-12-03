@@ -1,7 +1,7 @@
 <div align=center><img src="scarcity.webp"></div>
-<div align=center><img src="scarbucks.webp"></div>
-
-<div align=center><img src="church.png" width=72 height=72></div>
+<div align=center><img src="scarbucks.webp" width=288></div>
+&nbsp;
+<div align=center style><img src="church.png" width=72 height=72></div>
 
 <div align=center>A mission of <a href="https://carpocratian.org">The Carpocratian Church of Commonality and Equality</a></div>
 
