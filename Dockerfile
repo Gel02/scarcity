@@ -27,12 +27,8 @@ WORKDIR /app
 # We need netcat (nc) for the wait-for-it script in the compose file
 RUN apk add --no-cache netcat-openbsd curl
 
-# Copy built artifacts and dependencies from builder
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./
-# Copy test files if they aren't in dist (depends on tsconfig, usually they are)
-# COPY --from=builder /app/test ./test 
+# Copy everything from builder (includes source, dist, node_modules with devDeps)
+COPY --from=builder /app ./ 
 
 # Default environment variables for docker networking
 ENV FREEBIRD_ISSUER_URL="http://freebird-issuer:8081"
