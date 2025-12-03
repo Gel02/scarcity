@@ -38,7 +38,7 @@ COPY --from=builder /app/package.json ./
 ENV FREEBIRD_ISSUER_URL="http://freebird-issuer:8081"
 ENV FREEBIRD_VERIFIER_URL="http://freebird-verifier:8082"
 ENV WITNESS_GATEWAY_URL="http://witness-gateway:8080"
-ENV HYPERTOKEN_RELAY_URL="ws://hypertoken-relay:8080"
+ENV HYPERTOKEN_RELAY_URL="ws://hypertoken-relay:3000"
 
 # Default command runs the integration tests
 CMD ["npm", "test"]

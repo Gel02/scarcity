@@ -15,7 +15,7 @@ services:
       - FREEBIRD_ISSUER_URL=http://freebird-issuer:8081
       - FREEBIRD_VERIFIER_URL=http://freebird-verifier:8082
       - WITNESS_GATEWAY_URL=http://witness-gateway:8080
-      - HYPERTOKEN_RELAY_URL=ws://hypertoken-relay:8080
+      - HYPERTOKEN_RELAY_URL=ws://hypertoken-relay:3000
     # Wait for all services to be reachable before running tests
     command: >
       sh -c "
@@ -23,7 +23,7 @@ services:
         while ! nc -z freebird-issuer 8081; do sleep 1; done &&
         while ! nc -z freebird-verifier 8082; do sleep 1; done &&
         while ! nc -z witness-gateway 8080; do sleep 1; done &&
-        while ! nc -z hypertoken-relay 8080; do sleep 1; done &&
+        while ! nc -z hypertoken-relay 3000; do sleep 1; done &&
         echo '✅ Services up! Running tests...' &&
         npm test
       "
@@ -125,12 +125,11 @@ services:
         RUN npm install --ignore-scripts || true
         # Try to build what we can (failures are ok)
         RUN npm run build || true
-        EXPOSE 8080
-        # Use the root startup script
-        # Pass 8080 to override the default port 3000
-        CMD ["node", "start-relay.js", "8080"]
+        EXPOSE 3000
+        # Use the root startup script0
+        CMD ["node", "start-relay.js", "3000"]
     ports:
-      - "3000:8080"
+      - "3000:3000"
 
 volumes:
   witness-config:
