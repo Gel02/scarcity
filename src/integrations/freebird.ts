@@ -86,18 +86,22 @@ export class FreebirdAdapter implements FreebirdClient {
   private async init(): Promise<void> {
     if (this.metadata.size > 0) return;
 
+    console.log(`[Freebird] Connecting to ${this.issuerEndpoints.length} issuer(s):`, this.issuerEndpoints);
     // Fetch metadata from all issuers in parallel
     const metadataPromises = this.issuerEndpoints.map(async (url, index) => {
       try {
+        console.log(`[Freebird] Fetching metadata from ${url}/.well-known/issuer`);
         const response = await this.fetch(`${url}/.well-known/issuer`);
         if (response.ok) {
           const data = await response.json();
           this.metadata.set(url, data);
+          console.log(`[Freebird] ✅ Connected to issuer ${index + 1}/${this.issuerEndpoints.length}: ${url}`);
           return { url, index, success: true, data };
         }
+        console.warn(`[Freebird] ❌ Issuer ${url} returned HTTP ${response.status}`);
         return { url, index, success: false };
       } catch (error) {
-        console.warn(`[Freebird] Issuer ${url} not available:`, error);
+        console.warn(`[Freebird] ❌ Issuer ${url} not available:`, error);
         return { url, index, success: false };
       }
     });
