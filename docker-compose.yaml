@@ -115,6 +115,7 @@ services:
   hypertoken-relay:
     build:
       context: https://github.com/flammafex/hypertoken.git
+    command: ["node", "start-relay.js", "3000"]
     ports:
       - "3000:3000"
 
