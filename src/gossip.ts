@@ -271,10 +271,12 @@ export class NullifierGossip {
       }
     }
 
-    // Set up message handler for this peer
-    peer.setMessageHandler(async (data: GossipMessage) => {
-      await this.onReceive(data, peer.id);
-    });
+    // Set up message handler for this peer (if supported)
+    if (peer.setMessageHandler) {
+      peer.setMessageHandler(async (data: GossipMessage) => {
+        await this.onReceive(data, peer.id);
+      });
+    }
 
     this.peerConnections.push(peer);
     console.log(`[Gossip] Added peer ${peer.id} (total: ${this.peerConnections.length})`);
