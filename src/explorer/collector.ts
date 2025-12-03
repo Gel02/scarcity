@@ -73,7 +73,9 @@ export class NullifierCollector {
    * Handle incoming gossip message
    */
   private async handleGossipMessage(message: GossipMessage): Promise<void> {
+    console.log(`[Collector] handleGossipMessage called, type: ${message.type}`);
     if (message.type !== 'nullifier' || !message.nullifier || !message.proof) {
+      console.log(`[Collector] Ignoring non-nullifier message`);
       return;
     }
 
