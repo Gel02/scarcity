@@ -112,35 +112,32 @@ export class FreebirdAdapter implements FreebirdClient {
     if (successCount > 0) {
       console.log(`[Freebird] Connected to ${successCount}/${this.issuerEndpoints.length} issuers`);
     } else {
-      console.warn('[Freebird] No issuers available, using fallback mode');
+      console.error('[Freebird] No issuers available - operations will fail');
     }
   }
 
   /**
    * Blind a public key for privacy-preserving commitment
    *
-   * Uses P-256 VOPRF blinding when issuer is available: A = H(publicKey) * r
-   * Falls back to hash-based blinding when issuer is unavailable.
-   *
+   * Uses P-256 VOPRF blinding: A = H(publicKey) * r
    * The blind state is stored internally for later finalization.
+   *
+   * @throws Error if no issuer is available
    */
   async blind(publicKey: PublicKey): Promise<Uint8Array> {
     await this.init();
 
-    // Use production VOPRF blinding if at least one issuer is available
-    if (this.metadata.size > 0) {
-      const { blinded, state } = voprf.blind(publicKey.bytes, this.context);
-
-      // Store state indexed by blinded value for later finalization
-      const blindedHex = Crypto.toHex(blinded);
-      this.blindStates.set(blindedHex, state);
-
-      return blinded;
+    if (this.metadata.size === 0) {
+      throw new Error('Blinding failed: no Freebird issuer available');
     }
 
-    // Fallback: simulated blinding for testing without Freebird server
-    const nonce = Crypto.randomBytes(32);
-    return Crypto.hash(publicKey.bytes, nonce);
+    const { blinded, state } = voprf.blind(publicKey.bytes, this.context);
+
+    // Store state indexed by blinded value for later finalization
+    const blindedHex = Crypto.toHex(blinded);
+    this.blindStates.set(blindedHex, state);
+
+    return blinded;
   }
 
   /**
@@ -228,9 +225,9 @@ export class FreebirdAdapter implements FreebirdClient {
       throw new Error('All configured issuers failed to issue token');
     }
 
-    // Fallback: simulated token (for testing without Freebird server)
+    // No issuer available or no blind state - fail securely
     this.blindStates.delete(blindedHex);
-    return Crypto.hash(blindedValue, 'ISSUED');
+    throw new Error('Token issuance failed: no Freebird issuer available or missing blind state');
   }
 
   /**
@@ -309,40 +306,40 @@ export class FreebirdAdapter implements FreebirdClient {
   /**
    * Verify an authorization token
    *
-   * Current: Basic validation
-   * Future: POST to /v1/verify with full DLEQ proof verification
+   * Verifies the token via the Freebird verifier endpoint.
+   * @throws Error if verifier is unavailable
    */
   async verifyToken(token: Uint8Array): Promise<boolean> {
     await this.init();
 
-    // Attempt real verification if verifier is available
-    if (this.metadata.size > 0 && this.verifierUrl) {
-      // Use first issuer's metadata for verification
-      const firstMetadata = Array.from(this.metadata.values())[0];
-
-      try {
-        const response = await this.fetch(`${this.verifierUrl}/v1/verify`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            token_b64: voprf.bytesToBase64Url(token),
-            issuer_id: firstMetadata.issuer_id,
-            exp: Math.floor(Date.now() / 1000) + 3600,
-            epoch: firstMetadata.epoch || 0  // Key rotation epoch
-          })
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          return data.ok === true;
-        }
-      } catch (error) {
-        console.warn('[Freebird] Token verification failed, using fallback:', error);
-      }
+    if (this.metadata.size === 0) {
+      throw new Error('Token verification failed: no Freebird issuer available');
     }
 
-    // Fallback: basic length check
-    return token.length === 32 || token.length === 130;
+    if (!this.verifierUrl) {
+      throw new Error('Token verification failed: no verifier URL configured');
+    }
+
+    // Use first issuer's metadata for verification
+    const firstMetadata = Array.from(this.metadata.values())[0];
+
+    const response = await this.fetch(`${this.verifierUrl}/v1/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        token_b64: voprf.bytesToBase64Url(token),
+        issuer_id: firstMetadata.issuer_id,
+        exp: Math.floor(Date.now() / 1000) + 3600,
+        epoch: firstMetadata.epoch || 0  // Key rotation epoch
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Token verification failed: verifier returned ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.ok === true;
   }
 
   /**

@@ -752,6 +752,12 @@ export class ScarbuckToken {
       throw new Error('No refund key specified in HTLC');
     }
 
+    // Verify refundSecret corresponds to refundPublicKey
+    const derivedPublicKey = Crypto.hash(refundSecret, 'PUBLIC_KEY');
+    if (!Crypto.constantTimeEqual(derivedPublicKey, pkg.refundPublicKey.bytes)) {
+      throw new Error('Invalid refund key: secret does not match refundPublicKey');
+    }
+
     // Create new token for refund recipient
     return new ScarbuckToken({
       id: pkg.tokenId,

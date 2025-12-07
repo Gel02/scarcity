@@ -213,21 +213,11 @@ export class WitnessAdapter implements WitnessClient {
         console.log('[Witness] Successfully timestamped via gateway');
         return successfulResult;
       }
-
-      console.warn('[Witness] All gateways failed for timestamping, using fallback');
     }
 
-    // Fallback: simulated local attestation
-    return {
-      hash,
-      timestamp: Date.now(),
-      signatures: [
-        Crypto.toHex(Crypto.hash(hash, 'witness-1')),
-        Crypto.toHex(Crypto.hash(hash, 'witness-2')),
-        Crypto.toHex(Crypto.hash(hash, 'witness-3'))
-      ],
-      witnessIds: ['witness-1', 'witness-2', 'witness-3']
-    };
+    // All gateways failed - this is a fatal error
+    // Never create fake signatures as this would undermine the security model
+    throw new Error('Timestamping failed: no Witness gateway available');
   }
 
   /**
@@ -235,29 +225,45 @@ export class WitnessAdapter implements WitnessClient {
    *
    * Validates threshold signatures from witness nodes.
    * Supports both Ed25519 multi-sig and BLS12-381 aggregated signatures.
+   *
+   * IMPORTANT: This method requires actual cryptographic verification.
+   * It will throw if no gateway is available and local BLS verification fails.
    */
   async verify(attestation: Attestation): Promise<boolean> {
     await this.init();
 
-    // Attempt real verification if gateway is available
-    if (this.config) {
-      try {
-        // If we have the raw SignedAttestation, use it directly
-        // Otherwise, try to reconstruct (may fail if signatures aren't in correct format)
-        const witnessAttestation = attestation.raw || {
-          attestation: {
-            hash: attestation.hash,
-            timestamp: attestation.timestamp,
-            network_id: this.networkId,
-            sequence: 0
-          },
-          signatures: attestation.signatures.map((sig, idx) => ({
-            witness_id: attestation.witnessIds[idx],
-            signature: sig
-          }))
-        };
+    // Basic structural validation first
+    if (!attestation.hash || !attestation.timestamp) {
+      return false;
+    }
 
-        const response = await this.fetch(`${this.gatewayUrls}/v1/verify`, {
+    if (!attestation.signatures || attestation.signatures.length === 0) {
+      return false;
+    }
+
+    if (!attestation.witnessIds || attestation.witnessIds.length !== attestation.signatures.length) {
+      return false;
+    }
+
+    // If we have the raw SignedAttestation, use it directly
+    // Otherwise, try to reconstruct (may fail if signatures aren't in correct format)
+    const witnessAttestation = attestation.raw || {
+      attestation: {
+        hash: attestation.hash,
+        timestamp: attestation.timestamp,
+        network_id: this.networkId,
+        sequence: 0
+      },
+      signatures: attestation.signatures.map((sig, idx) => ({
+        witness_id: attestation.witnessIds[idx],
+        signature: sig
+      }))
+    };
+
+    // Try each gateway sequentially until one succeeds
+    for (const gatewayUrl of this.gatewayUrls) {
+      try {
+        const response = await this.fetch(`${gatewayUrl}/v1/verify`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ attestation: witnessAttestation })
@@ -268,38 +274,22 @@ export class WitnessAdapter implements WitnessClient {
           return data.valid === true;
         }
       } catch (error) {
-        console.warn('[Witness] Gateway verification failed, trying local verification:', error);
-
-        // Try local BLS verification if we have the raw attestation with BLS format
-        if (attestation.raw && this.config) {
-          const blsResult = this.verifyBLSLocal(attestation);
-          if (blsResult !== null) {
-            return blsResult;
-          }
-        }
+        console.warn(`[Witness] Gateway ${gatewayUrl} verification failed:`, error);
+        continue;
       }
     }
 
-    // Fallback: basic structural validation
-    if (!attestation.hash || !attestation.timestamp) {
-      return false;
+    // All gateways failed - try local BLS verification
+    if (attestation.raw && this.config) {
+      const blsResult = this.verifyBLSLocal(attestation);
+      if (blsResult !== null) {
+        console.log('[Witness] Verified attestation locally via BLS');
+        return blsResult;
+      }
     }
 
-    if (!attestation.signatures || attestation.signatures.length < 2) {
-      return false;
-    }
-
-    if (!attestation.witnessIds || attestation.witnessIds.length !== attestation.signatures.length) {
-      return false;
-    }
-
-    // Check if attestation is too old (24 hours)
-    const age = Date.now() - attestation.timestamp;
-    if (age > 24 * 60 * 60 * 1000) {
-      return false;
-    }
-
-    return true;
+    // No verification method succeeded - fail securely
+    throw new Error('Attestation verification failed: no gateway available and local BLS verification not possible');
   }
 
   /**
