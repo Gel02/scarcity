@@ -366,19 +366,18 @@ Follow these steps to get Scarcity running on your machine:
   ```bash
   npm run build
   ```
-- [ ] **Run tests (simulation mode):**
+- [ ] **Set up external services** (required for tests):
+  ```bash
+  # Start all infrastructure with Docker (required)
+  docker compose up -d freebird-issuer freebird-verifier witness-gateway hypertoken-relay
+  ```
+- [ ] **Run tests:**
   ```bash
   npm test
   ```
-  - Tests work WITHOUT external services in simulation mode
+  - Tests REQUIRE external services (Docker recommended)
   - You should see "All tests passed! ✓"
-- [ ] **Optional: Set up external services** (for full functionality):
-  ```bash
-  # Start infrastructure with Docker
-  docker compose up -d freebird-issuer freebird-verifier witness-gateway hypertoken-relay
-
-  # Or set up each service manually (advanced - see QUICKSTART.md)
-  ```
+  - Or set up each service manually (advanced - see QUICKSTART.md)
 - [ ] **Try the CLI:**
   ```bash
   ./dist/src/cli/index.js wallet create alice
@@ -571,13 +570,6 @@ const witness = new WitnessAdapter({
   }
 });
 ```
-
-**P-256 VOPRF (Verifiable Oblivious Pseudorandom Function):**
-- Production-ready cryptographic blinding with DLEQ proofs
-- Anonymous token issuance without revealing identity
-- Verifiable: DLEQ proof ensures issuer used correct secret key
-- Oblivious: Issuer cannot link token issuance to redemption
-- Based on RFC 9497 and hash-to-curve (RFC 9380)
 
 **Privacy Stack:**
 - **IP Privacy**: Tor hides your IP address via 3-hop onion routing
@@ -1548,27 +1540,25 @@ npm test
 # Individual test suites
 npm run test:basic          # Basic token transfer
 npm run test:double-spend   # Double-spend detection
-npm run test:degradation    # Graceful degradation (works without services)
+npm run test:degradation    # Graceful degradation tests
 npm run test:phase3         # Phase 3 advanced features
 ```
 
-**Expected Results (with all services running):**
+**Expected Results (with Docker services running):**
 ```
-✅ Graceful Degradation: 100% pass (5/5 tests)
-✅ Basic Token Transfer: 100% pass (9/9 tests)
-✅ Double-Spend Detection: 100% pass (7/7 tests)
+✅ Basic Token Transfer: pass
+✅ Double-Spend Detection: pass
+✅ Graceful Degradation: pass
+✅ Phase 3 Features: pass
+✅ Phase 3 CLI: pass
+✅ Spam Mitigation: pass
+✅ Security Hardening: pass
+✅ Crypto Correctness: pass
 
-Total: 21/21 tests passing
-Pass Rate: 100.0%
+All 8 test suites passing
 ```
 
-**Without Services:**
-Tests gracefully degrade to fallback mode, demonstrating resilience:
-```
-✅ Graceful Degradation: 100% pass (5/5 tests)
-⚠️  Basic Token Transfer: 88.9% pass (8/9 tests)
-✅ Double-Spend Detection: 100% pass (7/7 tests)
-```
+**Note:** Tests REQUIRE Docker services. Fallback modes were removed for security.
 
 ### Production Considerations
 
