@@ -6,6 +6,11 @@
  */
 
 import { checkServices } from './helpers/test-utils.js';
+import { runBasicTransferTest } from './integration/01-basic-transfer.test.js';
+import { runDoubleSpendTest } from './integration/02-double-spend.test.js';
+import { runGracefulDegradationTest } from './integration/03-graceful-degradation.test.js';
+import { runPhase3Tests } from './integration/04-phase3-features.test.js';
+import { runPhase3CLITests } from './integration/05-phase3-cli.test.js';
 import { runSpamMitigationTest } from './integration/06-spam-mitigation.test.js';
 import { runSecurityHardeningTest } from './integration/07-security-hardening.test.js';
 import { runCryptoCorrectnessTest } from './integration/08-crypto-correctness.test.js';
@@ -18,9 +23,34 @@ interface TestSuite {
 
 const testSuites: TestSuite[] = [
   {
+    name: 'Graceful Degradation',
+    run: runGracefulDegradationTest,
+    requiresServices: false
+  },
+  {
+    name: 'Basic Token Transfer',
+    run: runBasicTransferTest,
+    requiresServices: false // Works in fallback mode
+  },
+  {
+    name: 'Double-Spend Detection',
+    run: runDoubleSpendTest,
+    requiresServices: false // Works in fallback mode
+  },
+  {
+    name: 'Phase 3 Advanced Features',
+    run: runPhase3Tests,
+    requiresServices: false // Works in fallback mode
+  },
+  {
+    name: 'Phase 3 CLI Operations',
+    run: runPhase3CLITests,
+    requiresServices: false // Works in fallback mode
+  },
+  {
     name: 'Spam Mitigation (Security)',
     run: runSpamMitigationTest,
-    requiresServices: false // Tests security features with mock services
+    requiresServices: false // Tests security features
   },
   {
     name: 'Security Hardening (Phase 1)',
