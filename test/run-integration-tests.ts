@@ -13,6 +13,7 @@ import { runPhase3Tests } from './integration/04-phase3-features.test.js';
 import { runPhase3CLITests } from './integration/05-phase3-cli.test.js';
 import { runSpamMitigationTest } from './integration/06-spam-mitigation.test.js';
 import { runSecurityHardeningTest } from './integration/07-security-hardening.test.js';
+import { runCryptoCorrectnessTest } from './integration/08-crypto-correctness.test.js';
 
 interface TestSuite {
   name: string;
@@ -55,6 +56,11 @@ const testSuites: TestSuite[] = [
     name: 'Security Hardening (Phase 1)',
     run: runSecurityHardeningTest,
     requiresServices: false // Tests multi-gateway, peer diversity, and subnet checks
+  },
+  {
+    name: 'Cryptographic Correctness',
+    run: runCryptoCorrectnessTest,
+    requiresServices: false // Pure crypto tests, no external services
   }
 ];
 
