@@ -69,9 +69,10 @@ export class FederationBridge {
     // Create commitment for recipient in target federation
     const commitment = await this.freebird.blind(recipientKey);
 
-    // Create ownership proof
+    // Create ownership proof bound to nullifier
     const ownershipProof = await this.freebird.createOwnershipProof(
-      (token as any).secret
+      (token as any).secret,
+      nullifier
     );
 
     // Package bridge data for source federation

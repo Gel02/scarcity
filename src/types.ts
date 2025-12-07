@@ -138,7 +138,20 @@ export interface FreebirdClient {
   blind(publicKey: PublicKey): Promise<Uint8Array>;
   issueToken(blindedValue: Uint8Array): Promise<Uint8Array>;
   verifyToken(token: Uint8Array): Promise<boolean>;
-  createOwnershipProof(secret: Uint8Array): Promise<Uint8Array>;
+  /**
+   * Create a Schnorr signature-based ownership proof
+   * @param secret The secret key material
+   * @param binding Context binding (e.g., nullifier) to prevent replay attacks
+   * @returns 98-byte proof: P (33) || R (33) || s (32)
+   */
+  createOwnershipProof(secret: Uint8Array, binding: Uint8Array): Promise<Uint8Array>;
+  /**
+   * Verify a Schnorr ownership proof
+   * @param proof The 98-byte ownership proof
+   * @param binding Context binding that was used during creation
+   * @returns true if valid
+   */
+  verifyOwnershipProof(proof: Uint8Array, binding: Uint8Array): Promise<boolean>;
 }
 
 export interface WitnessClient {

@@ -10,11 +10,13 @@ import type {
   PeerConnection,
   GossipMessage,
   Attestation,
-  WitnessClient
+  WitnessClient,
+  FreebirdClient
 } from './types.js';
 
 export interface GossipConfig {
   readonly witness: WitnessClient;
+  readonly freebird?: FreebirdClient; // Required if requireOwnershipProof is true
   readonly maxNullifiers?: number;
   readonly pruneInterval?: number;
   readonly maxNullifierAge?: number; // Must match Validator's maxTokenAge
@@ -36,6 +38,7 @@ export class NullifierGossip {
   private readonly peerConnections: PeerConnection[] = [];
   private readonly peerScores = new Map<string, PeerScore>();
   private readonly witness: WitnessClient;
+  private readonly freebird?: FreebirdClient;
   private readonly maxNullifiers: number;
   private readonly pruneInterval: number;
   private receiveHandler?: (data: GossipMessage) => Promise<void>;
@@ -44,9 +47,10 @@ export class NullifierGossip {
   private readonly peerScoreThreshold: number;
   private readonly maxTimestampFuture: number;
   private readonly requireOwnershipProof: boolean;
-  
+
   constructor(config: GossipConfig) {
     this.witness = config.witness;
+    this.freebird = config.freebird;
     this.maxNullifiers = config.maxNullifiers ?? 100_000;
     this.pruneInterval = config.pruneInterval ?? 3600_000; // 1 hour
 	// Default to ~1.5 years (13,824 hours) to match the Validator's logic.
@@ -56,6 +60,12 @@ export class NullifierGossip {
     this.peerScoreThreshold = config.peerScoreThreshold ?? -50;
     this.maxTimestampFuture = (config.maxTimestampFuture ?? 5) * 1000; // Convert to ms
     this.requireOwnershipProof = config.requireOwnershipProof ?? false;
+
+    // Validate config: if ownership proof is required, freebird must be provided
+    if (this.requireOwnershipProof && !this.freebird) {
+      throw new Error('GossipConfig: freebird client required when requireOwnershipProof is true');
+    }
+
     // Start pruning old nullifiers periodically
     this.startPruning();
   }
@@ -203,9 +213,7 @@ export class NullifierGossip {
 
     // LAYER 3: FREEBIRD OWNERSHIP PROOF (optional, for maximum spam resistance)
     // This forces attackers to perform expensive VOPRF operations for each spam message
-    if (this.requireOwnershipProof) {
-      // In a full implementation, we would verify the ownershipProof here
-      // For now, we just check that it exists
+    if (this.requireOwnershipProof && this.freebird) {
       if (!data.ownershipProof) {
         console.warn('[Gossip] Missing required ownership proof');
         if (peerScore) {
@@ -213,7 +221,20 @@ export class NullifierGossip {
         }
         return;
       }
-      // TODO: Verify ownershipProof against Freebird
+
+      // Verify Schnorr ownership proof with nullifier as binding
+      const proofValid = await this.freebird.verifyOwnershipProof(
+        data.ownershipProof,
+        data.nullifier!
+      );
+
+      if (!proofValid) {
+        console.warn('[Gossip] Invalid ownership proof');
+        if (peerScore) {
+          this.penalizePeer(peerId!, -8, 'invalid ownership proof');
+        }
+        return;
+      }
     }
 
     // Valid message - reward peer
