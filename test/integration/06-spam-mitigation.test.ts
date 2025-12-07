@@ -11,6 +11,7 @@ import { TestRunner, TestConfig } from '../helpers/test-utils.js';
 import { NullifierGossip } from '../../src/gossip.js';
 import { WitnessAdapter } from '../../src/integrations/witness.js';
 import { HyperTokenAdapter } from '../../src/integrations/hypertoken.js';
+import { FreebirdAdapter } from '../../src/integrations/freebird.js';
 import { Crypto } from '../../src/crypto.js';
 import type { GossipMessage } from '../../src/types.js';
 
@@ -306,6 +307,12 @@ export async function runSpamMitigationTest(): Promise<void> {
   // Layer 3: Ownership Proof Verification
   console.log('\n🔐 Layer 3: Ownership Proof Verification\n');
 
+  // Create a Freebird adapter for ownership proof tests
+  const freebird = new FreebirdAdapter({
+    issuerEndpoints: [TestConfig.freebird.issuer],
+    verifierUrl: TestConfig.freebird.verifier
+  });
+
   await runner.run('should reject messages without ownership proof when required', async () => {
     const witness = new WitnessAdapter({
       gatewayUrl: TestConfig.witness.gateway
@@ -313,6 +320,7 @@ export async function runSpamMitigationTest(): Promise<void> {
 
     const gossip = new NullifierGossip({
       witness,
+      freebird, // Required when requireOwnershipProof is true
       requireOwnershipProof: true // Enable ownership proof requirement
     });
 
@@ -343,37 +351,43 @@ export async function runSpamMitigationTest(): Promise<void> {
     runner.assert(peerStats !== null && peerStats.score < 0, 'Peer should be penalized');
   });
 
-  await runner.run('should accept messages with ownership proof when required', async () => {
+  await runner.run('should accept messages with valid Schnorr ownership proof', async () => {
     const witness = new WitnessAdapter({
       gatewayUrl: TestConfig.witness.gateway
     });
 
     const gossip = new NullifierGossip({
       witness,
+      freebird,
       requireOwnershipProof: true
     });
 
     const peerId = 'valid-proof-peer';
+    const secret = Crypto.randomBytes(32);
+    const nullifier = Crypto.randomBytes(32);
 
-    // Message with ownership proof
+    // Create a valid Schnorr ownership proof bound to the nullifier
+    const ownershipProof = await freebird.createOwnershipProof(secret, nullifier);
+
+    // Message with valid Schnorr ownership proof
     const message: GossipMessage = {
       type: 'nullifier',
-      nullifier: Crypto.randomBytes(32),
+      nullifier,
       proof: {
-        hash: 'test',
+        hash: Crypto.toHex(nullifier),
         timestamp: Date.now(),
         signatures: ['sig1', 'sig2', 'sig3'],
         witnessIds: ['w1', 'w2', 'w3']
       },
       timestamp: Date.now(),
-      ownershipProof: Crypto.randomBytes(32) // Mock proof
+      ownershipProof
     };
 
     await gossip.onReceive(message, peerId);
 
-    // Should be accepted (note: actual verification is TODO)
+    // Should be accepted (proof verification passes)
     const stats = gossip.getStats();
-    runner.assertEquals(stats.nullifierCount, 1, 'Message with ownership proof should be accepted');
+    runner.assertEquals(stats.nullifierCount, 1, 'Message with valid ownership proof should be accepted');
   });
 
   // Attack Simulation
