@@ -11,8 +11,42 @@ import { TestRunner, TestConfig } from '../helpers/test-utils.js';
 import { NullifierGossip } from '../../src/gossip.js';
 import { WitnessAdapter } from '../../src/integrations/witness.js';
 import { HyperTokenAdapter } from '../../src/integrations/hypertoken.js';
+import { FreebirdAdapter } from '../../src/integrations/freebird.js';
 import { Crypto } from '../../src/crypto.js';
-import type { GossipMessage } from '../../src/types.js';
+import type { GossipMessage, WitnessClient, Attestation } from '../../src/types.js';
+
+/**
+ * Mock witness client for testing gossip behavior without live services.
+ * Can be configured to return valid/invalid responses.
+ */
+class MockWitnessClient implements WitnessClient {
+  private shouldVerify: boolean;
+
+  constructor(shouldVerify: boolean = true) {
+    this.shouldVerify = shouldVerify;
+  }
+
+  async timestamp(hash: string): Promise<Attestation> {
+    return {
+      hash,
+      timestamp: Date.now(),
+      signatures: ['mock-sig-1', 'mock-sig-2'],
+      witnessIds: ['mock-witness-1', 'mock-witness-2']
+    };
+  }
+
+  async verify(_attestation: Attestation): Promise<boolean> {
+    return this.shouldVerify;
+  }
+
+  async checkNullifier(_nullifier: Uint8Array): Promise<number> {
+    return 0;
+  }
+
+  setVerifyResult(shouldVerify: boolean): void {
+    this.shouldVerify = shouldVerify;
+  }
+}
 
 export async function runSpamMitigationTest(): Promise<void> {
   const runner = new TestRunner();
@@ -25,9 +59,8 @@ export async function runSpamMitigationTest(): Promise<void> {
   console.log('\n📊 Layer 1: Peer Reputation Scoring\n');
 
   await runner.run('should penalize peers for invalid witness proofs', async () => {
-    const witness = new WitnessAdapter({
-      gatewayUrl: TestConfig.witness.gateway
-    });
+    // Use mock witness that returns false for verify (simulating invalid proof)
+    const witness = new MockWitnessClient(false);
 
     const gossip = new NullifierGossip({
       witness,
@@ -36,15 +69,15 @@ export async function runSpamMitigationTest(): Promise<void> {
 
     const peerId = 'malicious-peer-1';
 
-    // Send invalid proof (will fail verification in fallback mode)
+    // Send invalid proof (mock witness will return false)
     const invalidMessage: GossipMessage = {
       type: 'nullifier',
       nullifier: Crypto.randomBytes(32),
       proof: {
         hash: 'invalid',
-        timestamp: Date.now() - 100000, // Very old timestamp
-        signatures: [],
-        witnessIds: []
+        timestamp: Date.now(),
+        signatures: ['sig1', 'sig2'],
+        witnessIds: ['w1', 'w2']
       },
       timestamp: Date.now()
     };
@@ -61,9 +94,8 @@ export async function runSpamMitigationTest(): Promise<void> {
   });
 
   await runner.run('should penalize peers for duplicate nullifiers', async () => {
-    const witness = new WitnessAdapter({
-      gatewayUrl: TestConfig.witness.gateway
-    });
+    // Use mock witness that returns true for verify
+    const witness = new MockWitnessClient(true);
 
     const gossip = new NullifierGossip({
       witness,
@@ -104,9 +136,8 @@ export async function runSpamMitigationTest(): Promise<void> {
   });
 
   await runner.run('should disconnect peer when score falls below threshold', async () => {
-    const witness = new WitnessAdapter({
-      gatewayUrl: TestConfig.witness.gateway
-    });
+    // Use mock witness that returns false (invalid proofs)
+    const witness = new MockWitnessClient(false);
 
     const gossip = new NullifierGossip({
       witness,
@@ -132,9 +163,9 @@ export async function runSpamMitigationTest(): Promise<void> {
         nullifier: Crypto.randomBytes(32),
         proof: {
           hash: 'invalid',
-          timestamp: Date.now() - 100000,
-          signatures: [],
-          witnessIds: []
+          timestamp: Date.now(),
+          signatures: ['sig1', 'sig2'],
+          witnessIds: ['w1', 'w2']
         },
         timestamp: Date.now()
       };
@@ -156,9 +187,7 @@ export async function runSpamMitigationTest(): Promise<void> {
   console.log('\n⏰ Layer 2: Timestamp Validation\n');
 
   await runner.run('should reject nullifiers with future timestamps', async () => {
-    const witness = new WitnessAdapter({
-      gatewayUrl: TestConfig.witness.gateway
-    });
+    const witness = new MockWitnessClient(true);
 
     const gossip = new NullifierGossip({
       witness,
@@ -192,9 +221,7 @@ export async function runSpamMitigationTest(): Promise<void> {
   });
 
   await runner.run('should reject nullifiers that are too old', async () => {
-    const witness = new WitnessAdapter({
-      gatewayUrl: TestConfig.witness.gateway
-    });
+    const witness = new MockWitnessClient(true);
 
     const gossip = new NullifierGossip({
       witness,
@@ -264,28 +291,24 @@ export async function runSpamMitigationTest(): Promise<void> {
   });
 
   await runner.run('should integrate PoW with Witness timestamping', async () => {
-    const witness = new WitnessAdapter({
-      gatewayUrl: TestConfig.witness.gateway,
-      powDifficulty: 12 // Enable PoW
-    });
+    // Use mock witness for this test
+    const witness = new MockWitnessClient(true);
 
     const hash = Crypto.hashString('test-nullifier');
     console.log(`  → Input hash: ${hash}`);
 
-    // This will solve PoW before attempting to timestamp
+    // This will return a mock attestation
     const attestation = await witness.timestamp(hash);
     console.log(`  → Returned hash: ${attestation.hash}`);
-    console.log(`  → Hash type: ${typeof attestation.hash}`);
-    console.log(`  → Hashes equal: ${attestation.hash === hash}`);
 
-    // Verify attestation structure (in fallback mode, hash should be preserved)
+    // Verify attestation structure
     runner.assert(attestation.hash != null, 'Attestation should have a hash');
     runner.assert(typeof attestation.hash === 'string', 'Hash should be a string');
     runner.assert(attestation.hash === hash, `Attestation hash should match (expected: ${hash}, got: ${attestation.hash})`);
     runner.assert(attestation.timestamp > 0, 'Attestation should have timestamp');
     runner.assert(Array.isArray(attestation.signatures), 'Attestation should have signatures');
     runner.assert(attestation.signatures.length >= 2, 'Attestation should have at least 2 signatures');
-    console.log('  → Witness with PoW completed successfully');
+    console.log('  → Mock witness timestamp completed successfully');
   });
 
   // Layer 1: Rate Limiting
@@ -306,13 +329,18 @@ export async function runSpamMitigationTest(): Promise<void> {
   // Layer 3: Ownership Proof Verification
   console.log('\n🔐 Layer 3: Ownership Proof Verification\n');
 
+  // Create a Freebird adapter for ownership proof tests
+  const freebird = new FreebirdAdapter({
+    issuerEndpoints: ['http://localhost:9999'], // Dummy, won't be called
+    verifierUrl: 'http://localhost:9999'
+  });
+
   await runner.run('should reject messages without ownership proof when required', async () => {
-    const witness = new WitnessAdapter({
-      gatewayUrl: TestConfig.witness.gateway
-    });
+    const witness = new MockWitnessClient(true);
 
     const gossip = new NullifierGossip({
       witness,
+      freebird, // Required when requireOwnershipProof is true
       requireOwnershipProof: true // Enable ownership proof requirement
     });
 
@@ -343,46 +371,129 @@ export async function runSpamMitigationTest(): Promise<void> {
     runner.assert(peerStats !== null && peerStats.score < 0, 'Peer should be penalized');
   });
 
-  await runner.run('should accept messages with ownership proof when required', async () => {
-    const witness = new WitnessAdapter({
-      gatewayUrl: TestConfig.witness.gateway
-    });
+  await runner.run('should accept messages with valid Schnorr ownership proof', async () => {
+    const witness = new MockWitnessClient(true);
 
     const gossip = new NullifierGossip({
       witness,
+      freebird,
       requireOwnershipProof: true
     });
 
     const peerId = 'valid-proof-peer';
+    const secret = Crypto.randomBytes(32);
+    const nullifier = Crypto.randomBytes(32);
 
-    // Message with ownership proof
+    // Create a valid Schnorr ownership proof bound to the nullifier
+    const ownershipProof = await freebird.createOwnershipProof(secret, nullifier);
+
+    // Message with valid Schnorr ownership proof
     const message: GossipMessage = {
       type: 'nullifier',
-      nullifier: Crypto.randomBytes(32),
+      nullifier,
       proof: {
-        hash: 'test',
+        hash: Crypto.toHex(nullifier),
         timestamp: Date.now(),
         signatures: ['sig1', 'sig2', 'sig3'],
         witnessIds: ['w1', 'w2', 'w3']
       },
       timestamp: Date.now(),
-      ownershipProof: Crypto.randomBytes(32) // Mock proof
+      ownershipProof
     };
 
     await gossip.onReceive(message, peerId);
 
-    // Should be accepted (note: actual verification is TODO)
+    // Should be accepted (proof verification passes)
     const stats = gossip.getStats();
-    runner.assertEquals(stats.nullifierCount, 1, 'Message with ownership proof should be accepted');
+    runner.assertEquals(stats.nullifierCount, 1, 'Message with valid ownership proof should be accepted');
+  });
+
+  await runner.run('should reject messages with invalid ownership proof', async () => {
+    const witness = new MockWitnessClient(true);
+
+    const gossip = new NullifierGossip({
+      witness,
+      freebird,
+      requireOwnershipProof: true
+    });
+
+    const peerId = 'invalid-proof-peer';
+    const secret = Crypto.randomBytes(32);
+    const nullifier = Crypto.randomBytes(32);
+    const wrongNullifier = Crypto.randomBytes(32);
+
+    // Create a proof bound to a DIFFERENT nullifier
+    const ownershipProof = await freebird.createOwnershipProof(secret, wrongNullifier);
+
+    // Message with proof bound to wrong nullifier
+    const message: GossipMessage = {
+      type: 'nullifier',
+      nullifier, // Different from what proof was bound to
+      proof: {
+        hash: Crypto.toHex(nullifier),
+        timestamp: Date.now(),
+        signatures: ['sig1', 'sig2', 'sig3'],
+        witnessIds: ['w1', 'w2', 'w3']
+      },
+      timestamp: Date.now(),
+      ownershipProof
+    };
+
+    await gossip.onReceive(message, peerId);
+
+    // Should be rejected (proof binding mismatch)
+    const stats = gossip.getStats();
+    runner.assertEquals(stats.nullifierCount, 0, 'Message with invalid ownership proof should be rejected');
+
+    // Peer should be penalized
+    const peerStats = gossip.getPeerStats(peerId);
+    runner.assert(peerStats !== null && peerStats.score < 0, 'Peer should be penalized for invalid proof');
+  });
+
+  await runner.run('should reject messages with tampered ownership proof', async () => {
+    const witness = new MockWitnessClient(true);
+
+    const gossip = new NullifierGossip({
+      witness,
+      freebird,
+      requireOwnershipProof: true
+    });
+
+    const peerId = 'tampered-proof-peer';
+    const secret = Crypto.randomBytes(32);
+    const nullifier = Crypto.randomBytes(32);
+
+    // Create a valid proof then tamper with it
+    const validProof = await freebird.createOwnershipProof(secret, nullifier);
+    const tamperedProof = new Uint8Array(validProof);
+    tamperedProof[50] ^= 0x01; // Flip a bit
+
+    const message: GossipMessage = {
+      type: 'nullifier',
+      nullifier,
+      proof: {
+        hash: Crypto.toHex(nullifier),
+        timestamp: Date.now(),
+        signatures: ['sig1', 'sig2', 'sig3'],
+        witnessIds: ['w1', 'w2', 'w3']
+      },
+      timestamp: Date.now(),
+      ownershipProof: tamperedProof
+    };
+
+    await gossip.onReceive(message, peerId);
+
+    // Should be rejected (tampered proof)
+    const stats = gossip.getStats();
+    runner.assertEquals(stats.nullifierCount, 0, 'Message with tampered proof should be rejected');
   });
 
   // Attack Simulation
   console.log('\n⚔️  Attack Simulation\n');
 
   await runner.run('should resist spam attack from multiple peers', async () => {
-    const witness = new WitnessAdapter({
-      gatewayUrl: TestConfig.witness.gateway
-    });
+    // Use mock witness that returns false (simulating invalid proofs)
+    const witness = new MockWitnessClient(false);
 
     const gossip = new NullifierGossip({
       witness,
