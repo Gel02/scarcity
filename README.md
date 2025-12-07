@@ -446,7 +446,7 @@ const freebird = new FreebirdAdapter({
   verifierUrl: 'https://verifier.example.com'
 });
 
-// Multi-issuer MPC threshold issuance (recommended)
+// Multi-issuer for redundancy (if one fails, tries next)
 const freebird = new FreebirdAdapter({
   issuerEndpoints: [
     'https://issuer1.example.com',
@@ -460,11 +460,11 @@ const freebird = new FreebirdAdapter({
 const commitment = await freebird.blind(recipientKey);
 
 // Issue anonymous token with DLEQ proof verification
-// In MPC mode: broadcasts to all issuers, verifies proofs, aggregates locally
+// With multiple issuers: tries each sequentially until one succeeds
 const token = await freebird.issueToken(commitment);
 
-// Create unforgeable ownership proof
-const proof = await freebird.createOwnershipProof(secret);
+// Create unforgeable Schnorr ownership proof (bound to nullifier)
+const proof = await freebird.createOwnershipProof(secret, nullifier);
 ```
 
 **P-256 VOPRF (Verifiable Oblivious Pseudorandom Function):**
@@ -474,13 +474,11 @@ const proof = await freebird.createOwnershipProof(secret);
 - Oblivious: Issuer cannot link token issuance to redemption
 - Based on RFC 9497 and hash-to-curve (RFC 9380)
 
-**MPC Threshold Issuance (Anti-Inflation):**
-- **Multi-Party Computation**: Splits issuer key across multiple servers
-- **Lagrange Interpolation**: Client aggregates partial signatures locally
-- **Byzantine Fault Tolerance**: Tolerates up to ⌊n/2⌋ malicious servers
-- **Immediate Verification**: Each partial signature verified with DLEQ proof
-- **No Single Point of Failure**: No single server can inflate supply alone
-- **Backward Compatible**: Single issuer works as before (no aggregation needed)
+**Issuer Redundancy:**
+- **Multiple Endpoints**: Configure multiple issuers for high availability
+- **Sequential Fallback**: If one issuer fails, automatically tries the next
+- **Independent Verification**: Each issuer's DLEQ proof is verified locally
+- **Trust Policy**: For multi-issuer trust requirements, configure TrustPolicy on the Freebird verifier side
 
 **Sybil Resistance Mechanisms:**
 - **Invitation System**: Cryptographically signed invites with ban-trees and reputation tracking
@@ -1010,7 +1008,7 @@ scar config set witness.networkId my-network
 scar config set freebird.issuerEndpoints http://localhost:8081
 scar config set freebird.verifierUrl http://localhost:8082
 
-# Or configure multiple issuers for MPC threshold issuance
+# Or configure multiple issuers for redundancy (failover)
 scar config set freebird.issuerEndpoints http://localhost:8081,http://localhost:8082,http://localhost:8083
 
 # Set HyperToken relay
@@ -1703,7 +1701,7 @@ Scarcity implements **defense-in-depth** security across multiple layers:
 - **Multi-Gateway Quorum**: Query 2-of-3 gateways to prevent censorship
 - **Outbound Peer Preference**: Weight trusted outbound peers 3x higher
 - **IP Subnet Diversity**: Detect and warn about Sybil attacks from same network
-- **MPC Threshold Issuance**: Split issuer key across multiple servers to prevent invisible inflation
+- **Issuer Redundancy**: Multiple issuers with sequential failover for high availability
 
 ### Configuration Examples
 
