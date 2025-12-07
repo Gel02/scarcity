@@ -167,10 +167,14 @@ export class FederationBridge {
       );
     }
 
-    // Create new token in target federation
-    // Use the same token ID to maintain traceability
+    // Create new token in target federation with unique ID
+    // Derive a new ID to prevent nullifier collision across federations
+    const targetTokenId = Crypto.toHex(
+      Crypto.hash(pkg.sourceTokenId, this.targetFederation, 'bridge-v1')
+    );
+
     return new ScarbuckToken({
-      id: pkg.sourceTokenId,
+      id: targetTokenId,
       amount: pkg.amount,
       secret: recipientSecret,
       freebird: this.freebird,
