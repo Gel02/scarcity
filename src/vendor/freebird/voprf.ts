@@ -3,14 +3,6 @@ import { sha256 } from '@noble/hashes/sha256';
 import { concatBytes, bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import * as P256 from './p256.js';
 
-/**
- * Represents a partial evaluation from a single server in MPC threshold issuance
- */
-export interface PartialEvaluation {
-  index: number;        // Server's key share index (1-based)
-  value: Uint8Array;    // Encoded evaluated point (B_i)
-}
-
 // Constants from Rust implementation
 const DLEQ_DST_PREFIX = new TextEncoder().encode('DLEQ-P256-v1');
 const COMPRESSED_POINT_LEN = 33;
@@ -91,91 +83,6 @@ export function finalize(
 
   // 5. Return the verified token bytes
   return tokenBytes;
-}
-
-/**
- * Aggregates partial evaluations from multiple servers using Lagrange interpolation.
- * Used in MPC threshold issuance to reconstruct the final evaluated point.
- *
- * Math:
- * - Each server i has a key share k_i and returns B_i = A * k_i
- * - We reconstruct T = A * k where k = Σ(λ_i * k_i)
- * - Since scalar multiplication is linear: T = Σ(λ_i * B_i)
- * - Lagrange coefficient: λ_i = ∏(j≠i) (x_j / (x_j - x_i)) mod N
- *
- * @param partials - Array of partial evaluations with server indices
- * @returns Aggregated evaluated point (encoded)
- */
-export function aggregate(partials: PartialEvaluation[]): Uint8Array {
-  if (partials.length === 0) {
-    throw new Error('Cannot aggregate zero partial evaluations');
-  }
-
-  // Special case: single server (non-MPC mode)
-  if (partials.length === 1) {
-    return partials[0].value;
-  }
-
-  // Decode all partial points
-  const points = partials.map(p => ({
-    index: p.index,
-    point: P256.decodePoint(p.value)
-  }));
-
-  // Extract indices for Lagrange computation
-  const indices = points.map(p => BigInt(p.index));
-
-  // Compute Lagrange coefficients for each index
-  const coefficients = indices.map((xi, i) =>
-    computeLagrangeCoefficient(xi, indices)
-  );
-
-  // Aggregate: T = Σ(λ_i * P_i)
-  let result = p256.ProjectivePoint.ZERO;
-
-  for (let i = 0; i < points.length; i++) {
-    const weighted = P256.multiply(points[i].point, coefficients[i]);
-    result = result.add(weighted);
-  }
-
-  // Return encoded aggregated point
-  return P256.encodePoint(result);
-}
-
-/**
- * Computes Lagrange interpolation coefficient for index x_i.
- *
- * Formula: λ_i = ∏(j≠i) (x_j / (x_j - x_i)) mod N
- *
- * We evaluate at x=0 for secret reconstruction:
- * λ_i = ∏(j≠i) (-x_j / (x_i - x_j)) mod N
- *     = ∏(j≠i) (x_j / (x_j - x_i)) mod N  (with sign handling)
- *
- * @param xi - The index for which to compute the coefficient
- * @param allIndices - All participating indices
- * @returns Lagrange coefficient λ_i mod N
- */
-function computeLagrangeCoefficient(xi: bigint, allIndices: bigint[]): bigint {
-  let numerator = 1n;
-  let denominator = 1n;
-
-  const N = P256.getCurveOrder();
-
-  for (const xj of allIndices) {
-    if (xj === xi) continue;
-
-    // numerator *= xj
-    numerator = P256.modMul(numerator, xj);
-
-    // denominator *= (xj - xi)
-    const diff = P256.modSub(xj, xi);
-    denominator = P256.modMul(denominator, diff);
-  }
-
-  // λ_i = numerator / denominator mod N
-  // Division in modular arithmetic: a/b = a * b^(-1) mod N
-  const denomInverse = P256.invertScalar(denominator);
-  return P256.modMul(numerator, denomInverse);
 }
 
 /**

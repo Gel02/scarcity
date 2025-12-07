@@ -11,7 +11,7 @@
 import { Crypto } from '../crypto.js';
 import type { FreebirdClient, PublicKey, TorConfig } from '../types.js';
 import * as voprf from '../vendor/freebird/voprf.js';
-import type { BlindState, PartialEvaluation } from '../vendor/freebird/voprf.js';
+import type { BlindState } from '../vendor/freebird/voprf.js';
 import { TorProxy } from '../tor.js';
 import { p256 } from '@noble/curves/p256';
 import { sha256 } from '@noble/hashes/sha256';
@@ -26,12 +26,16 @@ export interface FreebirdAdapterConfig {
 /**
  * Adapter for Freebird anonymous authorization service
  *
- * Implements production VOPRF protocol with MPC threshold issuance:
+ * Implements production VOPRF protocol for single-issuer token issuance:
  * 1. Client blinds input with random scalar r
- * 2. Client broadcasts to multiple issuers
- * 3. Each issuer evaluates blinded element with key share k_i
- * 4. Client verifies DLEQ proofs and aggregates valid responses
+ * 2. Client sends blinded element to an issuer
+ * 3. Issuer evaluates and returns token with DLEQ proof
+ * 4. Client verifies DLEQ proof to ensure correct evaluation
  * 5. Token provides anonymous authorization without revealing input
+ *
+ * Multiple issuers can be configured for redundancy - if one fails, the next
+ * is tried. For multi-issuer trust requirements, use Freebird's federation
+ * and TrustPolicy on the verifier side, not client-side aggregation.
  */
 export class FreebirdAdapter implements FreebirdClient {
   private readonly issuerEndpoints: string[];
@@ -64,9 +68,9 @@ export class FreebirdAdapter implements FreebirdClient {
       }
     }
 
-    // Log MPC mode
+    // Log redundancy mode
     if (this.issuerEndpoints.length > 1) {
-      console.log(`[Freebird] MPC threshold mode: ${this.issuerEndpoints.length} issuers`);
+      console.log(`[Freebird] Configured with ${this.issuerEndpoints.length} issuers for redundancy`);
     }
   }
 
@@ -140,16 +144,15 @@ export class FreebirdAdapter implements FreebirdClient {
   }
 
   /**
-   * Issue an authorization token using VOPRF with MPC threshold issuance
+   * Issue an authorization token using VOPRF single-issuer protocol
    *
    * Process:
-   * 1. Broadcast blinded element to all issuers in parallel
-   * 2. Verify DLEQ proof for each response
-   * 3. Collect valid partial evaluations until threshold is met
-   * 4. Aggregate partials using Lagrange interpolation
-   * 5. Return aggregated token
+   * 1. Try each configured issuer sequentially until one succeeds
+   * 2. Verify DLEQ proof to ensure correct evaluation
+   * 3. Return the verified token from that issuer
    *
-   * Backward compatible: single issuer works as before
+   * Multiple issuers provide redundancy - if one is unavailable, others are tried.
+   * For multi-issuer trust requirements, configure TrustPolicy on the verifier.
    */
   async issueToken(blindedValue: Uint8Array): Promise<Uint8Array> {
     await this.init();
@@ -160,132 +163,69 @@ export class FreebirdAdapter implements FreebirdClient {
 
     // Attempt real VOPRF issuance if at least one issuer is available
     if (this.metadata.size > 0 && state) {
-      try {
-        // Broadcast to all issuers in parallel
-        const issuePromises = this.issuerEndpoints.map(async (url, index) => {
-          const metadata = this.metadata.get(url);
-          if (!metadata) {
-            return { success: false, url, index };
+      // Try each issuer sequentially until one succeeds
+      for (const url of this.issuerEndpoints) {
+        const metadata = this.metadata.get(url);
+        if (!metadata) {
+          continue;
+        }
+
+        try {
+          const response = await this.fetch(`${url}/v1/oprf/issue`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              blinded_element_b64: voprf.bytesToBase64Url(blindedValue),
+              sybil_proof: { type: 'none' }
+            })
+          });
+
+          if (!response.ok) {
+            console.warn(`[Freebird] Issuer ${url} returned ${response.status}, trying next`);
+            continue;
           }
 
-          try {
-            const response = await this.fetch(`${url}/v1/oprf/issue`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                blinded_element_b64: voprf.bytesToBase64Url(blindedValue),
-                sybil_proof: { type: 'none' }
-              })
-            });
+          const data = await response.json();
 
-            if (!response.ok) {
-              return { success: false, url, index };
-            }
-
-            const data = await response.json();
-
-            // Extract evaluated point from token response
-            // Token format: [ A (33) | B (33) | Proof (64) ]
-            const tokenBytes = this.base64UrlToBytes(data.token);
-            if (tokenBytes.length !== 130) {
-              console.warn(`[Freebird] Invalid token length from ${url}`);
-              return { success: false, url, index };
-            }
-
-            // Extract B (the evaluated point) - bytes 33-66
-            const B_bytes = tokenBytes.slice(33, 66);
-
-            // Verify DLEQ proof
-            const G = p256.ProjectivePoint.BASE;
-            const Q = this.decodePublicKey(metadata.voprf.pubkey);
-            const A = this.decodePoint(tokenBytes.slice(0, 33));
-            const B = this.decodePoint(B_bytes);
-            const proofBytes = tokenBytes.slice(66);
-
-            const isValid = this.verifyDleqExternal(G, Q, A, B, proofBytes);
-
-            if (!isValid) {
-              console.warn(`[Freebird] Invalid DLEQ proof from ${url}`);
-              return { success: false, url, index };
-            }
-
-            // Use server's index if provided, otherwise use endpoint index (1-based)
-            const serverIndex = data.index ?? (index + 1);
-
-            return {
-              success: true,
-              url,
-              index: serverIndex,
-              evaluatedPoint: B_bytes,
-              fullToken: tokenBytes
-            };
-          } catch (error) {
-            console.warn(`[Freebird] Request to ${url} failed:`, error);
-            return { success: false, url, index };
+          // Extract evaluated point from token response
+          // Token format: [ A (33) | B (33) | Proof (64) ]
+          const tokenBytes = this.base64UrlToBytes(data.token);
+          if (tokenBytes.length !== 130) {
+            console.warn(`[Freebird] Invalid token length from ${url}, trying next`);
+            continue;
           }
-        });
 
-        const results = await Promise.all(issuePromises);
-        type ValidResponse = {
-          success: true;
-          url: string;
-          index: number;
-          evaluatedPoint: Uint8Array;
-          fullToken: Uint8Array;
-        };
-        const validResponses = results.filter(r => r.success) as ValidResponse[];
+          // Extract B (the evaluated point) - bytes 33-66
+          const B_bytes = tokenBytes.slice(33, 66);
 
-        if (validResponses.length === 0) {
-          throw new Error('No valid responses from any issuer');
+          // Verify DLEQ proof
+          const G = p256.ProjectivePoint.BASE;
+          const Q = this.decodePublicKey(metadata.voprf.pubkey);
+          const A = this.decodePoint(tokenBytes.slice(0, 33));
+          const B = this.decodePoint(B_bytes);
+          const proofBytes = tokenBytes.slice(66);
+
+          const isValid = this.verifyDleqExternal(G, Q, A, B, proofBytes);
+
+          if (!isValid) {
+            console.warn(`[Freebird] Invalid DLEQ proof from ${url}, trying next`);
+            continue;
+          }
+
+          // Success! Clean up and return the verified token
+          this.blindStates.delete(blindedHex);
+          console.log(`[Freebird] ✅ VOPRF token issued and verified from ${url}`);
+          return tokenBytes;
+
+        } catch (error) {
+          console.warn(`[Freebird] Request to ${url} failed:`, error);
+          continue;
         }
-
-        // Calculate threshold (majority)
-        const threshold = Math.ceil(this.issuerEndpoints.length / 2);
-
-        if (validResponses.length < threshold) {
-          console.warn(
-            `[Freebird] Only ${validResponses.length}/${this.issuerEndpoints.length} valid responses, ` +
-            `threshold is ${threshold}. Proceeding with available responses.`
-          );
-        }
-
-        // Clean up blind state
-        this.blindStates.delete(blindedHex);
-
-        // Single issuer: return token directly (backward compatibility)
-        if (this.issuerEndpoints.length === 1 && validResponses.length === 1) {
-          console.log('[Freebird] ✅ VOPRF token issued and verified (single issuer)');
-          return validResponses[0].fullToken;
-        }
-
-        // Multiple issuers: aggregate partial evaluations
-        const partials: PartialEvaluation[] = validResponses.map(r => ({
-          index: r.index,
-          value: r.evaluatedPoint
-        }));
-
-        const aggregatedPoint = voprf.aggregate(partials);
-
-        // Reconstruct token with aggregated evaluation
-        // Format: [ A (33) | B_aggregated (33) | Proof (64 zeros - placeholder) ]
-        const A_bytes = validResponses[0].fullToken.slice(0, 33);
-        const zeroProof = new Uint8Array(64); // Placeholder proof
-
-        const aggregatedToken = new Uint8Array(130);
-        aggregatedToken.set(A_bytes, 0);
-        aggregatedToken.set(aggregatedPoint, 33);
-        aggregatedToken.set(zeroProof, 66);
-
-        console.log(
-          `[Freebird] ✅ MPC token issued and aggregated ` +
-          `(${validResponses.length}/${this.issuerEndpoints.length} issuers)`
-        );
-
-        return aggregatedToken;
-      } catch (error) {
-        console.warn('[Freebird] Token issuance failed, using fallback:', error);
-        this.blindStates.delete(blindedHex);
       }
+
+      // All issuers failed
+      this.blindStates.delete(blindedHex);
+      throw new Error('All configured issuers failed to issue token');
     }
 
     // Fallback: simulated token (for testing without Freebird server)
