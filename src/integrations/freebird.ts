@@ -343,18 +343,142 @@ export class FreebirdAdapter implements FreebirdClient {
   }
 
   /**
-   * Create ownership proof for token spending
+   * Create Schnorr signature-based ownership proof
    *
-   * Current: Hash-based proof
-   * Future: VOPRF-based unforgeable proof using Freebird crypto
+   * Proves knowledge of secret without revealing it, bound to a context (e.g., nullifier).
+   *
+   * Format (98 bytes): P (33) || R (33) || s (32)
+   * - P: Public key derived from secret
+   * - R: Commitment point (random nonce * G)
+   * - s: Response scalar
+   *
+   * The binding parameter prevents replay attacks by tying the proof to
+   * a specific context (typically the nullifier).
+   *
+   * @param secret The secret key material
+   * @param binding Context binding (e.g., nullifier) to prevent replay
+   * @returns 98-byte Schnorr proof
    */
-  async createOwnershipProof(secret: Uint8Array): Promise<Uint8Array> {
-    // This would ideally use VOPRF to create a proof that:
-    // 1. Proves knowledge of secret without revealing it
-    // 2. Is unforgeable (cannot be created without the secret)
-    // 3. Is unlinkable (cannot correlate proofs to the same secret)
-    //
-    // For now: deterministic hash as placeholder
-    return Crypto.hash(secret, 'OWNERSHIP_PROOF');
+  async createOwnershipProof(secret: Uint8Array, binding: Uint8Array): Promise<Uint8Array> {
+    const N = p256.CURVE.n;
+    const G = p256.ProjectivePoint.BASE;
+
+    // 1. Derive secret scalar: x = H("OWNERSHIP_SCALAR" || secret) mod n
+    const xHash = sha256(concatBytes(
+      new TextEncoder().encode('OWNERSHIP_SCALAR'),
+      secret
+    ));
+    const x = BigInt('0x' + bytesToHex(xHash)) % N;
+
+    // Reject zero scalar (extremely unlikely but must check)
+    if (x === 0n) {
+      throw new Error('Derived secret scalar is zero');
+    }
+
+    // 2. Derive public key: P = x * G
+    const P = G.multiply(x);
+
+    // 3. Generate random nonce k using RFC 6979-style deterministic generation
+    // k = H("SCHNORR_NONCE" || x || binding) mod n
+    // This is deterministic to avoid nonce reuse vulnerabilities
+    const kHash = sha256(concatBytes(
+      new TextEncoder().encode('SCHNORR_NONCE'),
+      xHash,
+      binding
+    ));
+    const k = BigInt('0x' + bytesToHex(kHash)) % N;
+
+    if (k === 0n) {
+      throw new Error('Derived nonce is zero');
+    }
+
+    // 4. Compute commitment: R = k * G
+    const R = G.multiply(k);
+
+    // 5. Compute challenge: c = H("SCHNORR_OWNERSHIP" || R || P || binding) mod n
+    const challengeData = concatBytes(
+      new TextEncoder().encode('SCHNORR_OWNERSHIP'),
+      R.toRawBytes(true),    // 33 bytes compressed
+      P.toRawBytes(true),    // 33 bytes compressed
+      binding
+    );
+    const cHash = sha256(challengeData);
+    const c = BigInt('0x' + bytesToHex(cHash)) % N;
+
+    // 6. Compute response: s = (k + c * x) mod n
+    const s = (k + c * x) % N;
+
+    // 7. Encode proof: P || R || s (98 bytes)
+    const PBytes = P.toRawBytes(true);        // 33 bytes
+    const RBytes = R.toRawBytes(true);        // 33 bytes
+    const sBytes = this.bigintToBytes32(s);   // 32 bytes
+
+    return concatBytes(PBytes, RBytes, sBytes);
+  }
+
+  /**
+   * Verify a Schnorr ownership proof
+   *
+   * @param proof 98-byte proof: P (33) || R (33) || s (32)
+   * @param binding Context binding that was used during creation
+   * @returns true if the proof is valid
+   */
+  async verifyOwnershipProof(proof: Uint8Array, binding: Uint8Array): Promise<boolean> {
+    if (proof.length !== 98) {
+      return false;
+    }
+
+    try {
+      const N = p256.CURVE.n;
+      const G = p256.ProjectivePoint.BASE;
+
+      // 1. Parse proof components
+      const PBytes = proof.slice(0, 33);
+      const RBytes = proof.slice(33, 66);
+      const sBytes = proof.slice(66, 98);
+
+      // 2. Decode points and scalar
+      const P = p256.ProjectivePoint.fromHex(bytesToHex(PBytes));
+      const R = p256.ProjectivePoint.fromHex(bytesToHex(RBytes));
+      const s = BigInt('0x' + bytesToHex(sBytes));
+
+      // 3. Validate scalar range
+      if (s >= N || s === 0n) {
+        return false;
+      }
+
+      // 4. Recompute challenge: c = H("SCHNORR_OWNERSHIP" || R || P || binding) mod n
+      const challengeData = concatBytes(
+        new TextEncoder().encode('SCHNORR_OWNERSHIP'),
+        RBytes,
+        PBytes,
+        binding
+      );
+      const cHash = sha256(challengeData);
+      const c = BigInt('0x' + bytesToHex(cHash)) % N;
+
+      // 5. Verify: s * G == R + c * P
+      const sG = G.multiply(s);
+      const cP = P.multiply(c);
+      const RplusCp = R.add(cP);
+
+      // Compare points
+      return sG.equals(RplusCp);
+    } catch (e) {
+      // Any decoding error means invalid proof
+      return false;
+    }
+  }
+
+  /**
+   * Convert bigint to 32-byte big-endian array
+   */
+  private bigintToBytes32(n: bigint): Uint8Array {
+    const hex = n.toString(16).padStart(64, '0');
+    const bytes = new Uint8Array(32);
+    for (let i = 0; i < 32; i++) {
+      bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+    }
+    return bytes;
   }
 }

@@ -75,7 +75,8 @@ export class ScarbuckToken {
     const commitment = await this.freebird.blind(to);
 
     // C. Create ownership proof (proves we have the right to spend)
-    const ownershipProof = await this.freebird.createOwnershipProof(this.secret);
+    // Bound to nullifier to prevent replay attacks
+    const ownershipProof = await this.freebird.createOwnershipProof(this.secret, nullifier);
 
     // D. Package transfer data
     const pkg = {
@@ -147,8 +148,8 @@ export class ScarbuckToken {
       })
     );
 
-    // Create ownership proof
-    const ownershipProof = await this.freebird.createOwnershipProof(this.secret);
+    // Create ownership proof bound to nullifier
+    const ownershipProof = await this.freebird.createOwnershipProof(this.secret, nullifier);
 
     // Package split data
     const pkg = {
@@ -227,8 +228,11 @@ export class ScarbuckToken {
       })
     );
 
+    // Create ownership proofs for each token, bound to its nullifier
     const ownershipProofs = await Promise.all(
-      tokens.map(token => freebird.createOwnershipProof(token.secret))
+      tokens.map((token, i) =>
+        freebird.createOwnershipProof(token.secret, sources[i].nullifier)
+      )
     );
 
     // Package merge data
@@ -474,8 +478,8 @@ export class ScarbuckToken {
       })
     );
 
-    // Create ownership proof
-    const ownershipProof = await this.freebird.createOwnershipProof(this.secret);
+    // Create ownership proof bound to nullifier
+    const ownershipProof = await this.freebird.createOwnershipProof(this.secret, nullifier);
 
     // Package multi-party transfer data
     const pkg = {
@@ -617,8 +621,8 @@ export class ScarbuckToken {
     // Create blinded commitment to recipient
     const commitment = await this.freebird.blind(to);
 
-    // Create ownership proof
-    const ownershipProof = await this.freebird.createOwnershipProof(this.secret);
+    // Create ownership proof bound to nullifier
+    const ownershipProof = await this.freebird.createOwnershipProof(this.secret, nullifier);
 
     // Package HTLC data
     const pkg = {

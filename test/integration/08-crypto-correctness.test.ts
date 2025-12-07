@@ -19,8 +19,9 @@ import * as voprf from '../../src/vendor/freebird/voprf.js';
 import * as P256 from '../../src/vendor/freebird/p256.js';
 import { p256 } from '@noble/curves/p256';
 import { sha256 } from '@noble/hashes/sha256';
-import { bytesToHex } from '@noble/hashes/utils';
+import { bytesToHex, concatBytes } from '@noble/hashes/utils';
 import { TestRunner } from '../helpers/test-utils.js';
+import { FreebirdAdapter } from '../../src/integrations/freebird.js';
 
 export async function runCryptoCorrectnessTest(): Promise<void> {
   const runner = new TestRunner();
@@ -662,6 +663,299 @@ export async function runCryptoCorrectnessTest(): Promise<void> {
       nullifier: new Uint8Array(32).fill(99)
     });
     runner.assert(hash4 !== baseHash, 'Different nullifier should change hash');
+  });
+
+  // ============================================================================
+  // 9. Schnorr Ownership Proof Tests
+  // ============================================================================
+
+  // Create a minimal FreebirdAdapter for testing ownership proofs
+  // The adapter doesn't need real endpoints for crypto operations
+  const freebird = new FreebirdAdapter({
+    issuerEndpoints: ['http://localhost:9999'], // Dummy, won't be called
+    verifierUrl: 'http://localhost:9999'
+  });
+
+  await runner.run('Ownership proof has correct format (98 bytes)', async () => {
+    const secret = Crypto.randomBytes(32);
+    const binding = Crypto.randomBytes(32);
+
+    const proof = await freebird.createOwnershipProof(secret, binding);
+
+    runner.assertEquals(proof.length, 98, 'Proof should be 98 bytes');
+
+    // Verify structure: P (33) || R (33) || s (32)
+    const P = proof.slice(0, 33);
+    const R = proof.slice(33, 66);
+    const s = proof.slice(66, 98);
+
+    runner.assertEquals(P.length, 33, 'Public key should be 33 bytes');
+    runner.assertEquals(R.length, 33, 'Commitment should be 33 bytes');
+    runner.assertEquals(s.length, 32, 'Response scalar should be 32 bytes');
+
+    // P and R should be valid compressed P-256 points (start with 02 or 03)
+    runner.assert(
+      P[0] === 0x02 || P[0] === 0x03,
+      'P should be compressed P-256 point'
+    );
+    runner.assert(
+      R[0] === 0x02 || R[0] === 0x03,
+      'R should be compressed P-256 point'
+    );
+  });
+
+  await runner.run('Ownership proof verifies correctly', async () => {
+    const secret = Crypto.randomBytes(32);
+    const binding = Crypto.randomBytes(32);
+
+    const proof = await freebird.createOwnershipProof(secret, binding);
+    const valid = await freebird.verifyOwnershipProof(proof, binding);
+
+    runner.assert(valid, 'Valid proof should verify');
+  });
+
+  await runner.run('Ownership proof is deterministic for same inputs', async () => {
+    const secret = Crypto.randomBytes(32);
+    const binding = Crypto.randomBytes(32);
+
+    const proof1 = await freebird.createOwnershipProof(secret, binding);
+    const proof2 = await freebird.createOwnershipProof(secret, binding);
+
+    // The proof uses deterministic nonce generation (RFC 6979 style)
+    // so same inputs should produce same proof
+    runner.assertEquals(
+      Crypto.toHex(proof1),
+      Crypto.toHex(proof2),
+      'Same inputs should produce identical proof (deterministic nonce)'
+    );
+  });
+
+  await runner.run('Ownership proof differs for different secrets', async () => {
+    const secret1 = Crypto.randomBytes(32);
+    const secret2 = Crypto.randomBytes(32);
+    const binding = Crypto.randomBytes(32);
+
+    const proof1 = await freebird.createOwnershipProof(secret1, binding);
+    const proof2 = await freebird.createOwnershipProof(secret2, binding);
+
+    runner.assert(
+      Crypto.toHex(proof1) !== Crypto.toHex(proof2),
+      'Different secrets should produce different proofs'
+    );
+
+    // Both should verify individually
+    runner.assert(
+      await freebird.verifyOwnershipProof(proof1, binding),
+      'Proof 1 should verify'
+    );
+    runner.assert(
+      await freebird.verifyOwnershipProof(proof2, binding),
+      'Proof 2 should verify'
+    );
+  });
+
+  await runner.run('Ownership proof differs for different bindings', async () => {
+    const secret = Crypto.randomBytes(32);
+    const binding1 = Crypto.randomBytes(32);
+    const binding2 = Crypto.randomBytes(32);
+
+    const proof1 = await freebird.createOwnershipProof(secret, binding1);
+    const proof2 = await freebird.createOwnershipProof(secret, binding2);
+
+    runner.assert(
+      Crypto.toHex(proof1) !== Crypto.toHex(proof2),
+      'Different bindings should produce different proofs'
+    );
+  });
+
+  await runner.run('Ownership proof fails with wrong binding', async () => {
+    const secret = Crypto.randomBytes(32);
+    const correctBinding = Crypto.randomBytes(32);
+    const wrongBinding = Crypto.randomBytes(32);
+
+    const proof = await freebird.createOwnershipProof(secret, correctBinding);
+
+    // Should verify with correct binding
+    runner.assert(
+      await freebird.verifyOwnershipProof(proof, correctBinding),
+      'Should verify with correct binding'
+    );
+
+    // Should fail with wrong binding
+    runner.assert(
+      !(await freebird.verifyOwnershipProof(proof, wrongBinding)),
+      'Should fail with wrong binding'
+    );
+  });
+
+  await runner.run('Ownership proof rejects tampered proof', async () => {
+    const secret = Crypto.randomBytes(32);
+    const binding = Crypto.randomBytes(32);
+
+    const proof = await freebird.createOwnershipProof(secret, binding);
+
+    // Tamper with different parts of the proof
+
+    // Tamper with P (public key) - byte 10
+    const tamperedP = new Uint8Array(proof);
+    tamperedP[10] ^= 0x01;
+    runner.assert(
+      !(await freebird.verifyOwnershipProof(tamperedP, binding)),
+      'Tampered public key should fail verification'
+    );
+
+    // Tamper with R (commitment) - byte 40
+    const tamperedR = new Uint8Array(proof);
+    tamperedR[40] ^= 0x01;
+    runner.assert(
+      !(await freebird.verifyOwnershipProof(tamperedR, binding)),
+      'Tampered commitment should fail verification'
+    );
+
+    // Tamper with s (response) - byte 80
+    const tamperedS = new Uint8Array(proof);
+    tamperedS[80] ^= 0x01;
+    runner.assert(
+      !(await freebird.verifyOwnershipProof(tamperedS, binding)),
+      'Tampered response should fail verification'
+    );
+  });
+
+  await runner.run('Ownership proof rejects invalid length', async () => {
+    const binding = Crypto.randomBytes(32);
+
+    // Too short
+    const shortProof = Crypto.randomBytes(97);
+    runner.assert(
+      !(await freebird.verifyOwnershipProof(shortProof, binding)),
+      'Short proof should fail'
+    );
+
+    // Too long
+    const longProof = Crypto.randomBytes(99);
+    runner.assert(
+      !(await freebird.verifyOwnershipProof(longProof, binding)),
+      'Long proof should fail'
+    );
+
+    // Empty
+    runner.assert(
+      !(await freebird.verifyOwnershipProof(new Uint8Array(0), binding)),
+      'Empty proof should fail'
+    );
+  });
+
+  await runner.run('Ownership proof rejects invalid point encoding', async () => {
+    const binding = Crypto.randomBytes(32);
+
+    // Create proof with invalid P (first byte not 02 or 03)
+    const invalidP = new Uint8Array(98);
+    invalidP[0] = 0x04; // Uncompressed point prefix (invalid for our format)
+    runner.assert(
+      !(await freebird.verifyOwnershipProof(invalidP, binding)),
+      'Invalid P encoding should fail'
+    );
+
+    // Create proof with all zeros (invalid point)
+    const allZeros = new Uint8Array(98);
+    runner.assert(
+      !(await freebird.verifyOwnershipProof(allZeros, binding)),
+      'All zeros should fail (invalid points)'
+    );
+  });
+
+  await runner.run('Ownership proof public key derivation is consistent', async () => {
+    // Create multiple proofs with same secret, verify P is consistent
+    const secret = Crypto.randomBytes(32);
+    const binding1 = Crypto.randomBytes(32);
+    const binding2 = Crypto.randomBytes(32);
+    const binding3 = Crypto.randomBytes(32);
+
+    const proof1 = await freebird.createOwnershipProof(secret, binding1);
+    const proof2 = await freebird.createOwnershipProof(secret, binding2);
+    const proof3 = await freebird.createOwnershipProof(secret, binding3);
+
+    // P (first 33 bytes) should be identical since it's derived from secret
+    const P1 = Crypto.toHex(proof1.slice(0, 33));
+    const P2 = Crypto.toHex(proof2.slice(0, 33));
+    const P3 = Crypto.toHex(proof3.slice(0, 33));
+
+    runner.assertEquals(P1, P2, 'P should be same for same secret (1 vs 2)');
+    runner.assertEquals(P2, P3, 'P should be same for same secret (2 vs 3)');
+  });
+
+  await runner.run('Ownership proof Schnorr equation holds mathematically', async () => {
+    const secret = Crypto.randomBytes(32);
+    const binding = Crypto.randomBytes(32);
+    const N = p256.CURVE.n;
+    const G = p256.ProjectivePoint.BASE;
+
+    const proof = await freebird.createOwnershipProof(secret, binding);
+
+    // Parse proof components
+    const PBytes = proof.slice(0, 33);
+    const RBytes = proof.slice(33, 66);
+    const sBytes = proof.slice(66, 98);
+
+    const P = p256.ProjectivePoint.fromHex(bytesToHex(PBytes));
+    const R = p256.ProjectivePoint.fromHex(bytesToHex(RBytes));
+    const s = BigInt('0x' + bytesToHex(sBytes));
+
+    // Recompute challenge
+    const challengeData = concatBytes(
+      new TextEncoder().encode('SCHNORR_OWNERSHIP'),
+      RBytes,
+      PBytes,
+      binding
+    );
+    const cHash = sha256(challengeData);
+    const c = BigInt('0x' + bytesToHex(cHash)) % N;
+
+    // Verify Schnorr equation: s * G = R + c * P
+    const sG = G.multiply(s);
+    const cP = P.multiply(c);
+    const RplusCp = R.add(cP);
+
+    runner.assert(
+      sG.equals(RplusCp),
+      'Schnorr equation s*G = R + c*P should hold'
+    );
+  });
+
+  await runner.run('Multiple ownership proofs for batch verification', async () => {
+    // Create multiple proofs and verify them all
+    const secrets = Array.from({ length: 10 }, () => Crypto.randomBytes(32));
+    const bindings = Array.from({ length: 10 }, () => Crypto.randomBytes(32));
+
+    const proofs = await Promise.all(
+      secrets.map((secret, i) =>
+        freebird.createOwnershipProof(secret, bindings[i])
+      )
+    );
+
+    // Verify all proofs
+    const results = await Promise.all(
+      proofs.map((proof, i) =>
+        freebird.verifyOwnershipProof(proof, bindings[i])
+      )
+    );
+
+    runner.assert(
+      results.every(r => r === true),
+      'All 10 proofs should verify'
+    );
+
+    // Cross-verify should fail (wrong binding)
+    const crossResults = await Promise.all(
+      proofs.map((proof, i) =>
+        freebird.verifyOwnershipProof(proof, bindings[(i + 1) % 10])
+      )
+    );
+
+    runner.assert(
+      crossResults.every(r => r === false),
+      'Cross-verification with wrong bindings should all fail'
+    );
   });
 
   runner.printSummary();
